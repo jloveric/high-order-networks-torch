@@ -33,7 +33,7 @@ class Net(LightningModule):
         segments = cfg.segments
 
         self.model = resnet18(layer_type=self._layer_type,
-                              n=self.n, segments=segments,)
+                              n=self.n, segments=segments,num_classes=100)
 
     def forward(self, x):
         ans = self.model(x)
