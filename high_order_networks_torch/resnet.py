@@ -9,7 +9,7 @@ from torch import Tensor
 import torch.nn as nn
 #from .utils import load_state_dict_from_url
 from typing import Type, Any, Callable, Union, List, Optional
-from .high_order_layers import high_order_convolution as convolution
+from .high_order_layers import high_order_convolution
 from .high_order_layers import high_order_fully_connected_layer as fully_connected
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
@@ -40,13 +40,12 @@ def conv3x3(layer_type: str, n: int, in_planes: int, out_planes: int, stride: in
                                   padding=dilation, groups=groups, bias=False, dilation=dilation, **kwargs)
 
 
-def conv1x1(layer_type: str, in_planes: int, out_planes: int, stride: int = 1) -> nn.Conv2d:
+def conv1x1(layer_type: str, n: int, in_planes: int, out_planes: int, stride: int = 1, segments: int = 1, **kwargs) -> nn.Conv2d:
     """1x1 convolution"""
     """
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
     """
-    return high_order_convolution(layer_type=layer_type, n=n, segments=segments, in_channels=in_planes, out_channels=out_planes, kernel_size=3, stride=stride,
-                                  padding=dilation, groups=groups, bias=False, dilation=dilation, **kwargs)
+    return high_order_convolution(layer_type=layer_type, n=n, segments=segments, in_channels=in_planes, out_channels=out_planes, kernel_size=1, stride=stride, bias=False, **kwargs)
 
 
 class BasicBlock(nn.Module):
@@ -63,7 +62,7 @@ class BasicBlock(nn.Module):
         groups: int = 1,
         base_width: int = 64,
         dilation: int = 1,
-        norm_layer: Optional[Callable[..., nn.Module]] = None
+        norm_layer: Optional[Callable[..., nn.Module]] = None,
         segments: int = 1
     ) -> None:
         super(BasicBlock, self).__init__()
@@ -251,7 +250,8 @@ class ResNet(nn.Module):
             stride = 1
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                conv1x1(layer_type=self.layer_type, n=self.n, segments=self.segments, self.inplanes, planes * block.expansion, stride),
+                conv1x1(layer_type=self.layer_type, n=self.n, segments=self.segments,
+                        in_planes=self.inplanes, out_planes=planes * block.expansion, stride=stride),
                 norm_layer(planes * block.expansion),
             )
 
@@ -260,7 +260,7 @@ class ResNet(nn.Module):
                             base_width=self.base_width, dilation=previous_dilation, norm_layer=norm_layer))
         self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
-            layers.append(block(layer_type=self.layer_type, n=self.n, segements=self.segments, inplanes=self.inplanes, planes=planes, groups=self.groups,
+            layers.append(block(layer_type=self.layer_type, n=self.n, segments=self.segments, inplanes=self.inplanes, planes=planes, groups=self.groups,
                                 base_width=self.base_width, dilation=self.dilation,
                                 norm_layer=norm_layer))
 

@@ -7,8 +7,10 @@ verify_ssl = true
 hydra-core = "*"
 
 [packages]
-high-order-layers-torch = {editable = true, git = "git://github.com/jloveric/high-order-layers-torch", ref = "master"}
+high-order-layers-torch = {editable = true, git = "git://github.com/jloveric/high-order-layers-torch"}
 torch = "*"
+torchvision = "*"
+pytorch-lightning = "*"
 
 [requires]
 python_version = "3.8"
