@@ -6,6 +6,8 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
+high-order-layers-torch = {editable = true, git = "git://github.com/jloveric/high-order-layers-torch", ref = "master"}
+torch = "*"
 
 [requires]
 python_version = "3.8"
