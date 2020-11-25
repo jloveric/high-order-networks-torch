@@ -6,7 +6,7 @@ I plan to convert a few standard networks to high order an experiment with them 
 
 resnet converted from torchvision.
 
-## Cifar 10
+## Cifar 100
 
 ```python
 python cifar100.py max_epochs=100 train_fraction=1.0 layer_type=polynomial segments=1 n=3
