@@ -4,6 +4,7 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
+hydra-core = "*"
 
 [packages]
 high-order-layers-torch = {editable = true, git = "git://github.com/jloveric/high-order-layers-torch", ref = "master"}
