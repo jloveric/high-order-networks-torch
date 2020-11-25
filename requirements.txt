@@ -1,0 +1,7 @@
+-i https://pypi.org/simple
+-e git+git://github.com/jloveric/high-order-layers-torch@300478c98d8c0f279cbc5c8570d156dd9a93ae8a#egg=high-order-layers-torch
+dataclasses==0.6
+future==0.18.2; python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3'
+numpy==1.19.4; python_version >= '3.6'
+torch==1.7.0
+typing-extensions==3.7.4.3
