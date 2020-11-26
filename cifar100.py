@@ -23,9 +23,10 @@ cifar100_std = (0.2675, 0.2565, 0.2761)
 # Since we are using polynomials we really want all
 # the inputs between -1 and 1 and not just those within
 # 1 std deviation away.
-#cifar100_2std = (0.2675*2, 0.2565*2, 0.2761*2)
+rescale = 4.0
+cifar100_2std = (0.2675*rescale, 0.2565*rescale, 0.2761*rescale)
 
-#cifar100_std = cifar100_2std
+cifar100_std = cifar100_2std
 
 class Net(LightningModule):
     def __init__(self, cfg: DictConfig):
@@ -38,13 +39,15 @@ class Net(LightningModule):
         self._batch_size = cfg.batch_size
         self._layer_type = cfg.layer_type
         self._train_fraction = cfg.train_fraction
+        self._num_workers = cfg.num_workers
+        self._learning_rate = cfg.learning_rate
         segments = cfg.segments
 
-        
-        self.model = resnet10(layer_type=self._layer_type,
+        if cfg.layer_type=="standard" :
+            self.model = models.resnet18(num_classes=100)
+        else :
+            self.model = resnet10(layer_type=self._layer_type,
                               n=self.n, segments=segments,num_classes=100, scale=4.0)
-        
-        #self.model = models.resnet18(num_classes=100)
 
     def forward(self, x):
         ans = self.model(x)
@@ -81,17 +84,17 @@ class Net(LightningModule):
 
     def train_dataloader(self):
         trainloader = torch.utils.data.DataLoader(
-            self._train_subset, batch_size=4, shuffle=True, num_workers=10)
+            self._train_subset, batch_size=self._batch_size, shuffle=True, num_workers=self._num_workers)
         return trainloader
 
     def val_dataloader(self):
-        return torch.utils.data.DataLoader(self._val_subset, batch_size=self._batch_size, shuffle=False, num_workers=10)
+        return torch.utils.data.DataLoader(self._val_subset, batch_size=self._batch_size, shuffle=False, num_workers=self._num_workers)
 
     def test_dataloader(self):
         testset = torchvision.datasets.CIFAR100(
             root=self._data_dir, train=False, download=True, transform=self._transform_test)
         testloader = torch.utils.data.DataLoader(
-            testset, batch_size=4, shuffle=False, num_workers=10)
+            testset, batch_size=self._batch_size, shuffle=False, num_workers=self._num_workers)
         return testloader
 
     def validation_step(self, batch, batch_idx):
@@ -114,7 +117,19 @@ class Net(LightningModule):
         return self.eval_step(batch, batch_idx, 'test')
 
     def configure_optimizers(self):
-        return optim.AdamW(self.parameters(), lr=1.0e-3)
+        return optim.AdamW(self.parameters(), lr=self._learning_rate)
+
+class WeightClipper(object):
+
+    def __init__(self, frequency=5):
+        self.frequency = frequency
+
+    def __call__(self, module):
+        # filter the variables to get the ones you want
+        if hasattr(module, 'weight'):
+            w = module.weight.data
+            w = w.clamp(-1,1)
+            module.weight.data = w
 
 
 @hydra.main(config_name="./config/cifar100_config")
@@ -122,9 +137,13 @@ def run_cifar100(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
     print("Working directory : {}".format(os.getcwd()))
     print(f"Orig working directory    : {hydra.utils.get_original_cwd()}")
+    
 
-    trainer = Trainer(max_epochs=cfg.max_epochs, gpus=cfg.gpus)
+    trainer = Trainer(max_epochs=cfg.max_epochs, gpus=cfg.gpus, gradient_clip_val=cfg.gradient_clip_val)
     model = Net(cfg)
+    #clipper = WeightClipper()
+    #model.apply(clipper)
+
     trainer.fit(model)
     print('testing')
     trainer.test(model)

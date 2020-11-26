@@ -5,3 +5,6 @@ batch_size: 16
 segments: 2
 layer_type: piecewise 
 train_fraction: 1.0
+gradient_clip_val: 0.0
+num_workers: 20
+learning_rate: 1.0e-5

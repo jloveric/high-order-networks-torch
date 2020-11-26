@@ -7,7 +7,18 @@ I plan to convert a few standard networks to high order an experiment with them 
 resnet converted from torchvision.
 
 ## Cifar 100
+The following examples use ResNet18
 
+Simple polynomial convolutional layers
 ```python
-python cifar100.py max_epochs=100 train_fraction=1.0 layer_type=polynomial segments=1 n=3
+python cifar100.py max_epochs=20 train_fraction=1.0 layer_type=polynomial segments=1 n=3 batch_size=128 gradient_clip_val=0.5
+```
+Piecewise polynomial convolutional layers
+Simple polynomial convolutional layers
+```python
+python cifar100.py max_epochs=20 train_fraction=1.0 layer_type=piecewise segments=2 n=3 batch_size=128 gradient_clip_val=0.5
+```
+Discontinuous polynomial convolutional layers
+```python
+python cifar100.py max_epochs=20 train_fraction=1.0 layer_type=piecewise segments=2 n=3 batch_size=128 gradient_clip_val=0.5
 ```
