@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "46142ce4fd996221bf4541a12d608ab12e940c15b79f00fe2dadf082824e2652"
+            "sha256": "6aa34249d9d09a87d07b3af37b1d9248e1647d4fc082aa673df542e5cdc78841"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -137,7 +137,7 @@
         "high-order-layers-torch": {
             "editable": true,
             "git": "git://github.com/jloveric/high-order-layers-torch",
-            "ref": "17340cd9b37adcc2b008e177942aa2a72b6810b5"
+            "ref": "9e82ce2a9c45cc92aa0a4a5c502fa686eaf0722b"
         },
         "idna": {
             "hashes": [

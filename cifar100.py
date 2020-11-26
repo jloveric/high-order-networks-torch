@@ -5,11 +5,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from pytorch_lightning import LightningModule, Trainer
-from high_order_networks_torch.resnet import resnet18
+from high_order_networks_torch.resnet import resnet10, resnet18
 from pytorch_lightning.metrics.functional import accuracy
 import hydra
 from omegaconf import DictConfig, OmegaConf
 import os
+import torchvision.models as models
+
 
 cifar10_mean = (0.4914, 0.4822, 0.4465)
 cifar100_mean = (0.5071, 0.4867, 0.4408)
@@ -18,6 +20,12 @@ cifar100_mean = (0.5071, 0.4867, 0.4408)
 cifar10_std = (0.2470, 0.2435, 0.2616)
 cifar100_std = (0.2675, 0.2565, 0.2761)
 
+# Since we are using polynomials we really want all
+# the inputs between -1 and 1 and not just those within
+# 1 std deviation away.
+#cifar100_2std = (0.2675*2, 0.2565*2, 0.2761*2)
+
+#cifar100_std = cifar100_2std
 
 class Net(LightningModule):
     def __init__(self, cfg: DictConfig):
@@ -32,8 +40,11 @@ class Net(LightningModule):
         self._train_fraction = cfg.train_fraction
         segments = cfg.segments
 
-        self.model = resnet18(layer_type=self._layer_type,
-                              n=self.n, segments=segments,num_classes=100)
+        
+        self.model = resnet10(layer_type=self._layer_type,
+                              n=self.n, segments=segments,num_classes=100, scale=4.0)
+        
+        #self.model = models.resnet18(num_classes=100)
 
     def forward(self, x):
         ans = self.model(x)
@@ -103,7 +114,7 @@ class Net(LightningModule):
         return self.eval_step(batch, batch_idx, 'test')
 
     def configure_optimizers(self):
-        return optim.Adam(self.parameters(), lr=0.001)
+        return optim.AdamW(self.parameters(), lr=1.0e-3)
 
 
 @hydra.main(config_name="./config/cifar100_config")
