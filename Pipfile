@@ -5,6 +5,7 @@ verify_ssl = true
 
 [dev-packages]
 hydra-core = "*"
+tensorboard = "*"
 
 [packages]
 high-order-layers-torch = {editable = true, git = "git://github.com/jloveric/high-order-layers-torch", ref = "master"}

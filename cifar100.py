@@ -5,7 +5,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from pytorch_lightning import LightningModule, Trainer
-from high_order_networks_torch.resnet import resnet10, resnet18
+from pytorch_lightning.metrics import Metric
+
+from high_order_networks_torch.resnet import resnet_model
 from pytorch_lightning.metrics.functional import accuracy
 import hydra
 from omegaconf import DictConfig, OmegaConf
@@ -23,10 +25,32 @@ cifar100_std = (0.2675, 0.2565, 0.2761)
 # Since we are using polynomials we really want all
 # the inputs between -1 and 1 and not just those within
 # 1 std deviation away.
-rescale = 4.0
+rescale = 2.0
 cifar100_2std = (0.2675*rescale, 0.2565*rescale, 0.2761*rescale)
 
 cifar100_std = cifar100_2std
+
+
+class AccuracyTopK(Metric):
+    """
+    This will eventually be in pytorch-lightning, not yet merged so here it is.
+    """
+    def __init__(self, top_k=1, dist_sync_on_step=False):
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.k = top_k
+        self.add_state("correct", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
+
+    def update(self, logits, y):
+        _, pred = logits.topk(self.k, dim=1)
+        pred = pred.t()
+        corr = pred.eq(y.view(1, -1).expand_as(pred))
+        self.correct += corr[:self.k].sum()
+        self.total += y.numel()
+
+    def compute(self):
+        return self.correct.float() / self.total
+
 
 class Net(LightningModule):
     def __init__(self, cfg: DictConfig):
@@ -41,13 +65,23 @@ class Net(LightningModule):
         self._train_fraction = cfg.train_fraction
         self._num_workers = cfg.num_workers
         self._learning_rate = cfg.learning_rate
+        self._scale = cfg.scale
         segments = cfg.segments
+        self._topk_metric = AccuracyTopK(top_k=5)
 
-        if cfg.layer_type=="standard" :
-            self.model = models.resnet18(num_classes=100)
-        else :
-            self.model = resnet10(layer_type=self._layer_type,
-                              n=self.n, segments=segments,num_classes=100, scale=4.0)
+        if cfg.loss == "cross_entropy":
+            self._loss = F.cross_entropy #nn.CrossEntropyLoss
+        elif cfg.loss == "mse":
+            self._loss = nn.MSELoss
+        else:
+            raise ValueError(
+                f'loss must be cross_entropy or mse, got {cfg.loss}')
+
+        if cfg.layer_type == "standard":
+            self.model = getattr(models,cfg.model_name)(num_classes=100)
+        else:
+            self.model = resnet_model(model_name=cfg.model_name, layer_type=self._layer_type,
+                                      n=self.n, segments=segments, num_classes=100, scale=cfg.scale)
 
     def forward(self, x):
         ans = self.model(x)
@@ -80,7 +114,16 @@ class Net(LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        return F.cross_entropy(y_hat, y)
+        loss = self._loss(y_hat, y)
+        preds = torch.argmax(y_hat, dim=1)
+        acc = accuracy(preds, y)
+        val = self._topk_metric(y_hat, y)
+        val = self._topk_metric.compute()
+
+        self.log(f'train_loss', loss, prog_bar=True)
+        self.log(f'train_acc', acc, prog_bar=True)
+        self.log(f'train_acc5', val, prog_bar=True)
+        return loss
 
     def train_dataloader(self):
         trainloader = torch.utils.data.DataLoader(
@@ -103,13 +146,18 @@ class Net(LightningModule):
     def eval_step(self, batch, batch_idx, name):
         x, y = batch
         logits = self(x)
-        loss = F.cross_entropy(logits, y)
+        # This should b F.cross_entropy
+        #loss = F.nll_loss(logits, y)
+        loss = self._loss(logits, y)
         preds = torch.argmax(logits, dim=1)
         acc = accuracy(preds, y)
+        val = self._topk_metric(logits, y)
+        val = self._topk_metric.compute()
 
         # Calling self.log will surface up scalars for you in TensorBoard
         self.log(f'{name}_loss', loss, prog_bar=True)
         self.log(f'{name}_acc', acc, prog_bar=True)
+        self.log(f'{name}_acc5', val, prog_bar=True)
         return loss
 
     def test_step(self, batch, batch_idx):
@@ -117,19 +165,7 @@ class Net(LightningModule):
         return self.eval_step(batch, batch_idx, 'test')
 
     def configure_optimizers(self):
-        return optim.AdamW(self.parameters(), lr=self._learning_rate)
-
-class WeightClipper(object):
-
-    def __init__(self, frequency=5):
-        self.frequency = frequency
-
-    def __call__(self, module):
-        # filter the variables to get the ones you want
-        if hasattr(module, 'weight'):
-            w = module.weight.data
-            w = w.clamp(-1,1)
-            module.weight.data = w
+        return optim.Adam(self.parameters(), lr=self._learning_rate)
 
 
 @hydra.main(config_name="./config/cifar100_config")
@@ -137,12 +173,12 @@ def run_cifar100(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
     print("Working directory : {}".format(os.getcwd()))
     print(f"Orig working directory    : {hydra.utils.get_original_cwd()}")
-    
 
-    trainer = Trainer(max_epochs=cfg.max_epochs, gpus=cfg.gpus, gradient_clip_val=cfg.gradient_clip_val)
+    trainer = Trainer(max_epochs=cfg.max_epochs, gpus=cfg.gpus,
+                      gradient_clip_val=cfg.gradient_clip_val)
     model = Net(cfg)
     #clipper = WeightClipper()
-    #model.apply(clipper)
+    # model.apply(clipper)
 
     trainer.fit(model)
     print('testing')

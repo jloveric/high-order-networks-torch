@@ -8,3 +8,15 @@ train_fraction: 1.0
 gradient_clip_val: 0.0
 num_workers: 20
 learning_rate: 1.0e-5
+
+# The range of the polynomial [-2,2] when scale
+# is 4.  This is important beause outside of
+# the defined range the values rapidly explode
+scale: 4.0
+
+# Currently only "resnets" transformed from torchvision
+# have been implemented.
+model_name: resnet18
+
+# cross_entropy or mse
+loss: mse

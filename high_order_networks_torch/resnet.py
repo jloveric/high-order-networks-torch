@@ -283,12 +283,12 @@ class ResNet(nn.Module):
 
         layers = []
         layers.append(block(layer_type=self.layer_type, n=self.n, segments=self.segments, inplanes=self.inplanes, planes=planes, stride=stride, downsample=downsample, groups=self.groups,
-                            base_width=self.base_width, dilation=previous_dilation, norm_layer=norm_layer,scale=self._scale))
+                            base_width=self.base_width, dilation=previous_dilation, norm_layer=norm_layer, scale=self._scale))
         self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
             layers.append(block(layer_type=self.layer_type, n=self.n, segments=self.segments, inplanes=self.inplanes, planes=planes, groups=self.groups,
                                 base_width=self.base_width, dilation=self.dilation,
-                                norm_layer=norm_layer,scale=self._scale))
+                                norm_layer=norm_layer, scale=self._scale))
 
         return nn.Sequential(*layers)
 
@@ -331,6 +331,23 @@ def _resnet(
         model.load_state_dict(state_dict)
     """
     return model
+
+
+def resnet_model(model_name: str, pretrained: bool = False, progress: bool = True, **kwargs) -> ResNet:
+    model_dict = {
+        "resnet10": resnet10,
+        "resnet18": resnet18,
+        "resnet34": resnet34,
+        "resnet50": resnet50,
+        "resnet101": resnet101,
+        "resnet152": resnet152,
+        "resnext50_32x4d": resnext50_32x4d,
+        "resnext101_32x8d": resnext101_32x8d,
+        "wide_resnet50_2": wide_resnet50_2,
+        "wide_resnet101_2": wide_resnet101_2
+    }
+
+    return model_dict[model_name](pretrained=pretrained, progress=progress, **kwargs)
 
 
 def resnet10(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> ResNet:
