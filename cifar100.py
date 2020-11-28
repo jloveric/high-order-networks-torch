@@ -85,8 +85,8 @@ class Net(LightningModule):
             self.model = getattr(models, cfg.model_name)(num_classes=100)
         else:
             self.model = resnet_model(model_name=cfg.model_name, layer_type=self._layer_type,
-                                      n=self.n, segments=segments, num_classes=100, 
-                                      scale=cfg.scale, rescale_planes=cfg.rescale_planes)
+                                      n=self.n, segments=segments, num_classes=100,
+                                      scale=cfg.scale, rescale_planes=cfg.rescale_planes, rescale_output=cfg.rescale_output)
 
     def forward(self, x):
         ans = self.model(x)
@@ -150,11 +150,17 @@ class Net(LightningModule):
 
     def eval_step(self, batch, batch_idx, name):
         x, y = batch
+        #print('x', x)
+
         logits = self(x)
         # This should b F.cross_entropy
         #loss = F.nll_loss(logits, y)
         loss = self._loss(logits, y)
+        #print('logits', logits)
+        #exit()
+        #print('loss', loss)
         preds = torch.argmax(logits, dim=1)
+
         acc = accuracy(preds, y)
         val = self._topk_metric(logits, y)
         val = self._topk_metric.compute()
@@ -173,6 +179,21 @@ class Net(LightningModule):
         return optim.Adam(self.parameters(), lr=self._learning_rate)
 
 
+class WeightClipper(object):
+
+    def __init__(self, max_weight: float = 1):
+        self._max_weight = max_weight
+
+    def __call__(self, module):
+        print('INSIDE WEIGHT CLIPPER CALL!')
+        # filter the variables to get the ones you want
+        if hasattr(module, 'weight'):
+            w = module.weight.data
+            w = w.clamp(-self._max_weight, self._max_weight)
+            module.weight.data = w
+            print('I ACTUALLY CLIPPED WEIGHTS')
+
+
 @hydra.main(config_name="./config/cifar100_config")
 def run_cifar100(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
@@ -182,8 +203,13 @@ def run_cifar100(cfg: DictConfig):
     trainer = Trainer(max_epochs=cfg.max_epochs, gpus=cfg.gpus,
                       gradient_clip_val=cfg.gradient_clip_val)
     model = Net(cfg)
-    #clipper = WeightClipper()
-    # model.apply(clipper)
+    clipper = WeightClipper()
+    model.apply(clipper)
+
+    """
+    for param in model.parameters():
+        print(param.data)
+    """
 
     trainer.fit(model)
     print('testing')
