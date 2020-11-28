@@ -202,6 +202,7 @@ class ResNet(nn.Module):
         n: int = 3,
         segments: int = 1,
         scale: float = 4.0,
+        rescale_planes: int = 1,  # rescale the original planes based on number of nodes
     ) -> None:
         super(ResNet, self).__init__()
         if norm_layer is None:
@@ -210,7 +211,7 @@ class ResNet(nn.Module):
         self.layer_type = layer_type
         self.n = n
         self.segments = segments
-        self.inplanes = 64
+        self.inplanes = 64//rescale_planes
         self.dilation = 1
         self._scale = scale
 
@@ -234,15 +235,16 @@ class ResNet(nn.Module):
         self.bn1 = norm_layer(self.inplanes)
         #self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0])
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
+        self.layer1 = self._make_layer(block, 64//rescale_planes, layers[0])
+        self.layer2 = self._make_layer(block, 128//rescale_planes, layers[1], stride=2,
                                        dilate=replace_stride_with_dilation[0])
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
+        self.layer3 = self._make_layer(block, 256//rescale_planes, layers[2], stride=2,
                                        dilate=replace_stride_with_dilation[1])
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
+        self.layer4 = self._make_layer(block, 512//rescale_planes, layers[3], stride=2,
                                        dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.fc = nn.Linear((512//rescale_planes) *
+                            block.expansion, num_classes)
         #self.bn_out = nn.BatchNorm1d(num_classes)
 
         # TODO: this may need to be commented out

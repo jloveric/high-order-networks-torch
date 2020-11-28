@@ -35,11 +35,14 @@ class AccuracyTopK(Metric):
     """
     This will eventually be in pytorch-lightning, not yet merged so here it is.
     """
+
     def __init__(self, top_k=1, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.k = top_k
-        self.add_state("correct", default=torch.tensor(0.0), dist_reduce_fx="sum")
-        self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("correct", default=torch.tensor(
+            0.0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(
+            0.0), dist_reduce_fx="sum")
 
     def update(self, logits, y):
         _, pred = logits.topk(self.k, dim=1)
@@ -55,6 +58,7 @@ class AccuracyTopK(Metric):
 class Net(LightningModule):
     def __init__(self, cfg: DictConfig):
         super().__init__()
+        self.save_hyperparameters(cfg)
         self._cfg = cfg
         self._data_dir = f"{hydra.utils.get_original_cwd()}/data"
 
@@ -70,7 +74,7 @@ class Net(LightningModule):
         self._topk_metric = AccuracyTopK(top_k=5)
 
         if cfg.loss == "cross_entropy":
-            self._loss = F.cross_entropy #nn.CrossEntropyLoss
+            self._loss = F.cross_entropy  # nn.CrossEntropyLoss
         elif cfg.loss == "mse":
             self._loss = nn.MSELoss
         else:
@@ -78,10 +82,11 @@ class Net(LightningModule):
                 f'loss must be cross_entropy or mse, got {cfg.loss}')
 
         if cfg.layer_type == "standard":
-            self.model = getattr(models,cfg.model_name)(num_classes=100)
+            self.model = getattr(models, cfg.model_name)(num_classes=100)
         else:
             self.model = resnet_model(model_name=cfg.model_name, layer_type=self._layer_type,
-                                      n=self.n, segments=segments, num_classes=100, scale=cfg.scale)
+                                      n=self.n, segments=segments, num_classes=100, 
+                                      scale=cfg.scale, rescale_planes=cfg.rescale_planes)
 
     def forward(self, x):
         ans = self.model(x)

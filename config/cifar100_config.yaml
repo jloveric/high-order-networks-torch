@@ -20,3 +20,6 @@ model_name: resnet18
 
 # cross_entropy or mse
 loss: mse
+
+# resize the input and output channels. new_channel = int(old_channels/rescale_planes
+rescale_planes: 1
