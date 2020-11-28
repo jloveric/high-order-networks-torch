@@ -1,7 +1,8 @@
 # High Order Networks in PyTorch
 These are high order networks using the high order layers defined in the repo [here](https://github.com/jloveric/high-order-layers-torch)
 
-Parameters that do work...
+The following contain parameters that do work...  Weights represent actual function values and not slopes (as they do for RELU or linear) so some of the techniques used are slightly different.  For example, performing an average at the neuron is typically necessary for deep polynomial networks otherwise the you can get exploding values at the
+edge outside the desired range.  In addition to averaging, the range of the function should be setm generally this is [-1, 1] so in these examples we choose scale=2.0 however to allow for 2 standard deviations scale=4.0 should be set.  On the other hand, deep fourier series networks are periodic so averaging is not necessary, but a scale should still be set, likely 2.0.
 ## Implemented Networks
 
 resnet converted from torchvision.
@@ -26,10 +27,9 @@ python cifar100.py max_epochs=100 train_fraction=1.0 layer_type=standard segment
  'val_loss': tensor(4.0639, device='cuda:0')}
 
 ```
-```bash
-
 
 ### Simple polynomial convolutional layers
+
 ```python
 python cifar100.py max_epochs=20 train_fraction=1.0 layer_type=polynomial n=3 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-4 scale=6
 ```
@@ -77,7 +77,7 @@ python cifar100.py max_epochs=100 train_fraction=1.0 layer_type=fourier segments
 ### Piecewise polynomial convolutional layers - still working on stability here
 Simple polynomial convolutional layers
 ```python
-python cifar100.py max_epochs=20 train_fraction=1.0 layer_type=piecewise segments=2 n=3 batch_size=128 gradient_clip_val=0.5
+python cifar100.py -m  max_epochs=100 train_fraction=1.0 layer_type=piecewise segments=2 n=3 batch_size=128 gradient_clip_val=1.0 learning_rate=1e-3 scale=2.0 model_name=resnet10 loss=cross_entropy rescale_planes=1 rescale_output=True
 ```
 ### Discontinuous polynomial convolutional layers - still working on stability here
 ```python
