@@ -26,3 +26,9 @@ rescale_planes: 1
 
 # Whether to average the output by the number of inputs.  Important for polynomials.
 rescale_output: False
+
+# Train layer by layer or not
+layer_by_layer: True
+
+# Number of training epochs for a given layer before moving onto the next.
+epochs_per_layer: 10

@@ -74,12 +74,34 @@ python cifar100.py max_epochs=100 train_fraction=1.0 layer_type=fourier segments
 ```
 
 
-### Piecewise polynomial convolutional layers - still working on stability here
+### Piecewise polynomial convolutional layers
 Simple polynomial convolutional layers
 ```python
 python cifar100.py -m  max_epochs=100 train_fraction=1.0 layer_type=piecewise segments=2 n=3 batch_size=128 gradient_clip_val=1.0 learning_rate=1e-3 scale=2.0 model_name=resnet10 loss=cross_entropy rescale_planes=1 rescale_output=True
 ```
-### Discontinuous polynomial convolutional layers - still working on stability here
 ```python
-python cifar100.py max_epochs=20 train_fraction=1.0 layer_type=piecewise segments=2 n=3 batch_size=128 gradient_clip_val=0.5
+{'test_acc': tensor(0.3771, device='cuda:0'),
+ 'test_acc5': tensor(0.6626, device='cuda:0'),
+ 'test_loss': tensor(3.8744, device='cuda:0'),
+ 'train_acc': tensor(0.6719, device='cuda:0'),
+ 'train_acc5': tensor(0.9219, device='cuda:0'),
+ 'train_loss': tensor(0.9543, device='cuda:0'),
+ 'val_acc': tensor(0.3647, device='cuda:0'),
+ 'val_acc5': tensor(0.6532, device='cuda:0'),
+ 'val_loss': tensor(3.4837, device='cuda:0')}
+```
+### Discontinuous polynomial convolutional layers
+```python
+python cifar100.py -m  max_epochs=100 train_fraction=1.0 layer_type=discontinuous segments=2 n=3 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-3 scale=2.0 model_name=resnet10 loss=cross_entropy rescale_planes=3 rescale_output=True 
+```
+```python
+{'test_acc': tensor(0.3587, device='cuda:0'),
+ 'test_acc5': tensor(0.6414, device='cuda:0'),
+ 'test_loss': tensor(4.0509, device='cuda:0'),
+ 'train_acc': tensor(0.7031, device='cuda:0'),
+ 'train_acc5': tensor(0.9375, device='cuda:0'),
+ 'train_loss': tensor(1.0352, device='cuda:0'),
+ 'val_acc': tensor(0.3462, device='cuda:0'),
+ 'val_acc5': tensor(0.6307, device='cuda:0'),
+ 'val_loss': tensor(3.7229, device='cuda:0')}
 ```

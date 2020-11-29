@@ -72,6 +72,7 @@ class Net(LightningModule):
         self._scale = cfg.scale
         segments = cfg.segments
         self._topk_metric = AccuracyTopK(top_k=5)
+        self._epochs_per_layer = cfg.epochs_per_layer
 
         if cfg.loss == "cross_entropy":
             self._loss = F.cross_entropy  # nn.CrossEntropyLoss
@@ -86,9 +87,12 @@ class Net(LightningModule):
         else:
             self.model = resnet_model(model_name=cfg.model_name, layer_type=self._layer_type,
                                       n=self.n, segments=segments, num_classes=100,
-                                      scale=cfg.scale, rescale_planes=cfg.rescale_planes, rescale_output=cfg.rescale_output)
+                                      scale=cfg.scale, rescale_planes=cfg.rescale_planes,
+                                      rescale_output=cfg.rescale_output,
+                                      layer_by_layer=cfg.layer_by_layer)
 
     def forward(self, x):
+        self.model.set_training_layer(self.current_epoch//self._epochs_per_layer)
         ans = self.model(x)
         return ans
 
@@ -119,6 +123,7 @@ class Net(LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
+
         loss = self._loss(y_hat, y)
         preds = torch.argmax(y_hat, dim=1)
         acc = accuracy(preds, y)
@@ -151,13 +156,13 @@ class Net(LightningModule):
     def eval_step(self, batch, batch_idx, name):
         x, y = batch
         #print('x', x)
-
         logits = self(x)
+        #print('logits.shape', logits.shape)
         # This should b F.cross_entropy
         #loss = F.nll_loss(logits, y)
         loss = self._loss(logits, y)
         #print('logits', logits)
-        #exit()
+        # exit()
         #print('loss', loss)
         preds = torch.argmax(logits, dim=1)
 

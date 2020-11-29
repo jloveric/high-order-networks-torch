@@ -42,7 +42,7 @@ class LayerNorm2d(x) :
 """
 
 
-def conv3x3(layer_type: str, n: int, in_planes: int, out_planes: int, stride: int = 1, 
+def conv3x3(layer_type: str, n: int, in_planes: int, out_planes: int, stride: int = 1,
             groups: int = 1, dilation: int = 1, segments: int = 1, scale: float = 4.0, **kwargs) -> nn.Conv2d:
     """3x3 convolution with padding"""
     """
@@ -211,6 +211,7 @@ class ResNet(nn.Module):
         scale: float = 4.0,
         rescale_planes: int = 1,  # rescale the original planes based on number of nodes
         rescale_output: bool = False,
+        layer_by_layer: bool = True,
     ) -> None:
         super(ResNet, self).__init__()
         if norm_layer is None:
@@ -223,6 +224,8 @@ class ResNet(nn.Module):
         self.dilation = 1
         self._scale = scale
         self._rescale_output = rescale_output
+        self._training_layer = 0
+        self._layer_by_layer = layer_by_layer
 
         if replace_stride_with_dilation is None:
             # each element in the tuple indicates if we should replace
@@ -233,17 +236,16 @@ class ResNet(nn.Module):
                              "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
         self.groups = groups
         self.base_width = width_per_group
-        self.conv1 = high_order_convolution(
-            layer_type=layer_type, n=n, segments=segments, in_channels=3,
-            out_channels=self.inplanes, kernel_size=7, stride=2,
-            padding=3, bias=False, length=scale, rescale_output=rescale_output)
 
-        # self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3,
-        #                       bias=False)
+        self.layer0 = nn.Sequential(
+            high_order_convolution(
+                layer_type=layer_type, n=n, segments=segments, in_channels=3,
+                out_channels=self.inplanes, kernel_size=7, stride=2,
+                padding=3, bias=False, length=scale, rescale_output=rescale_output),
+            norm_layer(self.inplanes),
+            nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        )
 
-        self.bn1 = norm_layer(self.inplanes)
-        #self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64//rescale_planes, layers[0])
         self.layer2 = self._make_layer(block, 128//rescale_planes, layers[1], stride=2,
                                        dilate=replace_stride_with_dilation[0])
@@ -251,12 +253,43 @@ class ResNet(nn.Module):
                                        dilate=replace_stride_with_dilation[1])
         self.layer4 = self._make_layer(block, 512//rescale_planes, layers[3], stride=2,
                                        dilate=replace_stride_with_dilation[2])
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
 
-        # Ideally this would remain 512 since it won't be converted to a polynomial.
-        self.fc = nn.Linear((512//rescale_planes) *
-                            block.expansion, num_classes)
-        #self.bn_out = nn.BatchNorm1d(num_classes)
+        def pool_linear(in_channels: int, out_channels: int):
+            return nn.Sequential(
+                nn.AdaptiveAvgPool2d((1, 1)),
+                nn.Flatten(),
+                nn.Linear(in_features=in_channels, out_features=out_channels)
+            )
+
+        self.layer5 = pool_linear(in_channels=(512//rescale_planes) *
+                                  block.expansion, out_channels=num_classes)
+
+        self.model_layers = [
+            self.layer0,
+            self.layer1,
+            self.layer2,
+            self.layer3,
+            self.layer4,
+            self.layer5
+        ]
+
+        # Now create a buncth of intermediate Linear layers
+        self.layer0_intermediate = pool_linear(
+            64//rescale_planes, num_classes)
+        self.layer1_intermediate = pool_linear(
+            64//rescale_planes, num_classes)
+        self.layer2_intermediate = pool_linear(
+            128//rescale_planes, num_classes)
+        self.layer3_intermediate = pool_linear(
+            256//rescale_planes, num_classes)
+
+        self.intermediate_layers = [
+            self.layer0_intermediate,
+            self.layer1_intermediate,
+            self.layer2_intermediate,
+            self.layer3_intermediate,
+            self.layer5
+        ]
 
         # TODO: this may need to be commented out
         for m in self.modules():
@@ -278,6 +311,9 @@ class ResNet(nn.Module):
                 elif isinstance(m, BasicBlock):
                     # type: ignore[arg-type]
                     nn.init.constant_(m.bn2.weight, 0)
+
+    def set_training_layer(self, layer):
+        self._training_layer = layer
 
     def _make_layer(self, block: Type[Union[BasicBlock, Bottleneck]], planes: int, blocks: int,
                     stride: int = 1, dilate: bool = False) -> nn.Sequential:
@@ -306,26 +342,36 @@ class ResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
+    def _forward_layer_by_layer(self, x: Tensor) -> Tensor:
+
+        # no back prop or gradients for the preceeding layers
+        training_layer = min(self._training_layer, len(self.intermediate_layers)-1)
+        
+        with torch.no_grad():
+            for i in range(training_layer):
+                x = self.model_layers[i](x)
+        
+        x = self.model_layers[training_layer](x)
+
+        # and use a linear layer for backprop
+        x = self.intermediate_layers[training_layer](x)
+        return x
+        
     def _forward_impl(self, x: Tensor) -> Tensor:
         # See note [TorchScript super()]
-        x = self.conv1(x)
-        x = self.bn1(x)
-        #x = self.relu(x)
-        x = self.maxpool(x)
-
+        x = self.layer0(x)
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
-
-        x = self.avgpool(x)
-        x = torch.flatten(x, 1)
-        x = self.fc(x)
-        #x = self.bn_out(x)
+        x = self.layer5(x)
         return x
 
     def forward(self, x: Tensor) -> Tensor:
-        return self._forward_impl(x)
+        if self._layer_by_layer is True :
+            return self._forward_layer_by_layer(x)
+        else :
+            return self._forward_impl(x)
 
 
 def _resnet(
