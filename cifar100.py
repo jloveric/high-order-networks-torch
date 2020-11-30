@@ -8,6 +8,8 @@ from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.metrics import Metric
 
 from high_order_networks_torch.resnet import resnet_model
+from high_order_networks_torch.simple_conv import SimpleConv
+
 from pytorch_lightning.metrics.functional import accuracy
 import hydra
 from omegaconf import DictConfig, OmegaConf
@@ -82,17 +84,21 @@ class Net(LightningModule):
             raise ValueError(
                 f'loss must be cross_entropy or mse, got {cfg.loss}')
 
-        if cfg.layer_type == "standard":
-            self.model = getattr(models, cfg.model_name)(num_classes=100)
+        if cfg.model_name != "simple":
+            if cfg.layer_type == "standard":
+                self.model = getattr(models, cfg.model_name)(num_classes=100)
+            else:
+                self.model = resnet_model(model_name=cfg.model_name, layer_type=self._layer_type,
+                                          n=self.n, segments=segments, num_classes=100,
+                                          scale=cfg.scale, rescale_planes=cfg.rescale_planes,
+                                          rescale_output=cfg.rescale_output,
+                                          layer_by_layer=cfg.layer_by_layer)
         else:
-            self.model = resnet_model(model_name=cfg.model_name, layer_type=self._layer_type,
-                                      n=self.n, segments=segments, num_classes=100,
-                                      scale=cfg.scale, rescale_planes=cfg.rescale_planes,
-                                      rescale_output=cfg.rescale_output,
-                                      layer_by_layer=cfg.layer_by_layer)
+            self.model = SimpleConv(cfg)
 
     def forward(self, x):
-        self.model.set_training_layer(self.current_epoch//self._epochs_per_layer)
+        self.model.set_training_layer(
+            self.current_epoch//self._epochs_per_layer)
         ans = self.model(x)
         return ans
 
@@ -181,7 +187,8 @@ class Net(LightningModule):
         return self.eval_step(batch, batch_idx, 'test')
 
     def configure_optimizers(self):
-        return optim.Adam(self.parameters(), lr=self._learning_rate)
+        return optim.AdamW(self.parameters(), lr=self._learning_rate)
+        #return optim.LBFGS(self.parameters(), lr=1, max_iter=20, history_size=100)
 
 
 class WeightClipper(object):
