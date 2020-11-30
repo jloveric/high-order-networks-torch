@@ -1,7 +1,9 @@
 # High Order Networks in PyTorch
+SANDBOX Work in Progress for experimenting with High Order Layers...
+
 These are high order networks using the high order layers defined in the repo [here](https://github.com/jloveric/high-order-layers-torch)
 
-The following contain parameters that do work...  Weights represent actual function values and not slopes (as they do for RELU or linear) so some of the techniques used are slightly different.  For example, performing an average at the neuron is typically necessary for deep polynomial networks otherwise the you can get exploding values at the
+The following contain parameters that do work, though not necessarily very well...  Weights represent actual function values and not slopes (as they do for RELU or linear) so some of the techniques used are slightly different.  For example, performing an average at the neuron is typically necessary for deep polynomial networks otherwise the you can get exploding values at the
 edge outside the desired range.  In addition to averaging, the range of the function should be setm generally this is [-1, 1] so in these examples we choose scale=2.0 however to allow for 2 standard deviations scale=4.0 should be set.  On the other hand, deep fourier series networks are periodic so averaging is not necessary, but a scale should still be set, likely 2.0.
 ## Implemented Networks
 
@@ -28,7 +30,7 @@ python cifar100.py max_epochs=100 train_fraction=1.0 layer_type=standard segment
 
 ```
 
-### Simple polynomial convolutional layers
+### Polynomial convolutional layers
 
 ```python
 python cifar100.py max_epochs=20 train_fraction=1.0 layer_type=polynomial n=3 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-4 scale=6
@@ -106,7 +108,7 @@ python cifar100.py -m  max_epochs=100 train_fraction=1.0 layer_type=discontinuou
  'val_loss': tensor(3.7229, device='cuda:0')}
 ```
 
-### Running the small convolutional neural network
+### Running the small convolutional neural network for experimentation.
 model_name is "simple"
 ```
 python cifar100.py -m max_epochs=60 train_fraction=1.0 layer_type=polynomial segments=1 n=6 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-3 scale=4.0 model_name=simple loss=cross_entropy rescale_planes=2 rescale_output=True layer_by_layer=True epochs_per_layer=20
