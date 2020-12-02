@@ -190,6 +190,15 @@ class Net(LightningModule):
         return optim.AdamW(self.parameters(), lr=self._learning_rate)
         #return optim.LBFGS(self.parameters(), lr=1, max_iter=20, history_size=100)
 
+    def on_before_zero_grad(self, *args, **kwargs):
+        # clamp the weights here
+        # This could be bad news for the linear layer.
+        for param in self.model.parameters():
+            #print('param', param)
+            #if hasattr(param, 'weight'):
+            #    print('param', param)
+            w = param.data
+            w = w.clamp(-1.0, 1.0)
 
 class WeightClipper(object):
 
