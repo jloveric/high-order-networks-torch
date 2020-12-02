@@ -33,18 +33,18 @@ python cifar100.py max_epochs=100 train_fraction=1.0 layer_type=standard segment
 ### Polynomial convolutional layers
 
 ```python
-python cifar100.py max_epochs=20 train_fraction=1.0 layer_type=polynomial n=3 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-4 scale=6
+python cifar100.py max_epochs=20 train_fraction=1.0 layer_type=polynomial n=3 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-4 scale=6 layer_by_layer=False
 ```
 ```python
-python cifar100.py max_epochs=20 train_fraction=1.0 layer_type=polynomial n=4 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-4 scale=8 model_name=resnet10
+python cifar100.py max_epochs=20 train_fraction=1.0 layer_type=polynomial n=4 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-4 scale=8 model_name=resnet10 layer_by_layer=False
 ```
 ```python
-python cifar100.py max_epochs=20 train_fraction=1.0 layer_type=polynomial n=4 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-4 scale=10 model_name=resnet18
+python cifar100.py max_epochs=20 train_fraction=1.0 layer_type=polynomial n=4 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-4 scale=10 model_name=resnet18 layer_by_layer=False
 ```
 ## Fourier Series
 
 ```bash
-python cifar100.py max_epochs=100 train_fraction=1.0 layer_type=fourier segments=1 n=3 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-3 scale=4.0 model_name=resnet10 loss=cross_entropy
+python cifar100.py max_epochs=100 train_fraction=1.0 layer_type=fourier segments=1 n=3 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-3 scale=4.0 model_name=resnet10 loss=cross_entropy layer_by_layer=False
 ```
 with accuracy (100 epochs)
 ```python
@@ -60,7 +60,7 @@ with accuracy (100 epochs)
 
 ```
 ```bash
-python cifar100.py max_epochs=100 train_fraction=1.0 layer_type=fourier segments=1 n=2 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-3 scale=4.0 model_name=resnet18 loss=cross_entropy
+python cifar100.py max_epochs=100 train_fraction=1.0 layer_type=fourier segments=1 n=2 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-3 scale=4.0 model_name=resnet18 loss=cross_entropy layer_by_layer=False
 ```
 ```python
 {'test_acc': tensor(0.4308, device='cuda:0'),
@@ -79,7 +79,7 @@ python cifar100.py max_epochs=100 train_fraction=1.0 layer_type=fourier segments
 ### Piecewise polynomial convolutional layers
 Simple polynomial convolutional layers
 ```python
-python cifar100.py -m  max_epochs=100 train_fraction=1.0 layer_type=piecewise segments=2 n=3 batch_size=128 gradient_clip_val=1.0 learning_rate=1e-3 scale=2.0 model_name=resnet10 loss=cross_entropy rescale_planes=1 rescale_output=True
+python cifar100.py -m  max_epochs=100 train_fraction=1.0 layer_type=piecewise segments=2 n=3 batch_size=128 gradient_clip_val=1.0 learning_rate=1e-3 scale=2.0 model_name=resnet10 loss=cross_entropy rescale_planes=1 rescale_output=True layer_by_layer=False
 ```
 ```python
 {'test_acc': tensor(0.3771, device='cuda:0'),
@@ -94,7 +94,7 @@ python cifar100.py -m  max_epochs=100 train_fraction=1.0 layer_type=piecewise se
 ```
 ### Discontinuous polynomial convolutional layers
 ```python
-python cifar100.py -m  max_epochs=100 train_fraction=1.0 layer_type=discontinuous segments=2 n=3 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-3 scale=2.0 model_name=resnet10 loss=cross_entropy rescale_planes=3 rescale_output=True 
+python cifar100.py -m  max_epochs=100 train_fraction=1.0 layer_type=discontinuous segments=2 n=3 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-3 scale=2.0 model_name=resnet10 loss=cross_entropy rescale_planes=3 rescale_output=True layer_by_layer=False
 ```
 ```python
 {'test_acc': tensor(0.3587, device='cuda:0'),
