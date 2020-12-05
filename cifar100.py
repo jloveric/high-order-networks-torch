@@ -198,6 +198,7 @@ class Net(LightningModule):
             #if hasattr(param, 'weight'):
             #    print('param', param)
             w = param.data
+            #print('w', torch.max(w))
             w = w.clamp(-1.0, 1.0)
 
 class WeightClipper(object):

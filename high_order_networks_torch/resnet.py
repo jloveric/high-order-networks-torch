@@ -355,6 +355,8 @@ class ResNet(nn.Module):
 
         # and use a linear layer for backprop
         x = self.intermediate_layers[training_layer](x)
+        #for i in range(training_layer) :
+        #    x=x+self.intermediate_layers[i](x)
         return x
         
     def _forward_impl(self, x: Tensor) -> Tensor:
