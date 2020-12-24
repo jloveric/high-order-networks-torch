@@ -41,6 +41,14 @@ class LayerNorm2d(x) :
         LayerNorm(xin)
 """
 
+class PassThrough() :
+    def __init__(self, *args, **kwargs) :
+        pass
+
+    def __call__(self, x) :
+        return x
+
+#SpecialNorm = PassThrough
 
 def conv3x3(layer_type: str, n: int, in_planes: int, out_planes: int, stride: int = 1,
             groups: int = 1, dilation: int = 1, segments: int = 1, scale: float = 4.0, **kwargs) -> nn.Conv2d:
@@ -82,6 +90,7 @@ class BasicBlock(nn.Module):
         rescale_output: bool = False
     ) -> None:
         super(BasicBlock, self).__init__()
+        self._norm_layer=norm_layer
         if norm_layer is None:
             norm_layer = SpecialNorm
         if groups != 1 or base_width != 64:
@@ -109,12 +118,11 @@ class BasicBlock(nn.Module):
 
         out = self.conv1(x)
         #print('out1', torch.max(out))
-        out = self.bn1(out)
+        #out = self.bn1(out)
         #out = self.relu(out)
         out = self.conv2(out)
         #print('out2', torch.max(out))
-
-        out = self.bn2(out)
+        #out = self.bn2(out)
 
         if self.downsample is not None:
             identity = self.downsample(x)
@@ -174,15 +182,15 @@ class Bottleneck(nn.Module):
         identity = x
 
         out = self.conv1(x)
-        out = self.bn1(out)
+        #out = self.bn1(out)
         #out = self.relu(out)
 
         out = self.conv2(out)
-        out = self.bn2(out)
+        #out = self.bn2(out)
         #out = self.relu(out)
 
         out = self.conv3(out)
-        out = self.bn3(out)
+        #out = self.bn3(out)
 
         if self.downsample is not None:
             identity = self.downsample(x)
@@ -242,7 +250,7 @@ class ResNet(nn.Module):
                 layer_type=layer_type, n=n, segments=segments, in_channels=3,
                 out_channels=self.inplanes, kernel_size=7, stride=2,
                 padding=3, bias=False, length=scale, rescale_output=rescale_output),
-            norm_layer(self.inplanes),
+            #norm_layer(self.inplanes),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         )
 
@@ -272,6 +280,8 @@ class ResNet(nn.Module):
             self.layer4,
             self.layer5
         ]
+
+        self.softmax= nn.Softmax(dim=1)
 
         # Now create a buncth of intermediate Linear layers
         self.layer0_intermediate = pool_linear(
@@ -328,7 +338,7 @@ class ResNet(nn.Module):
                 conv1x1(layer_type=self.layer_type, n=self.n, segments=self.segments,
                         in_planes=self.inplanes, out_planes=planes * block.expansion,
                         stride=stride, scale=self._scale, rescale_output=self._rescale_output),
-                norm_layer(planes * block.expansion),
+                #norm_layer(planes * block.expansion),
             )
 
         layers = []
@@ -346,15 +356,27 @@ class ResNet(nn.Module):
 
         # no back prop or gradients for the preceeding layers
         training_layer = min(self._training_layer, len(self.intermediate_layers)-1)
-        
+        #print('inside here')
+        y = None
         with torch.no_grad():
             for i in range(training_layer):
                 x = self.model_layers[i](x)
-        
+                """
+                if i == 0 :
+                    y=self.intermediate_layers[i](x)
+                elif i>0: 
+                    y+=self.intermediate_layers[i](x)
+                """
+            if training_layer-1 >=0 :
+                y = self.softmax(self.intermediate_layers[training_layer-1](x))
+                #y = self.intermediate_layers[training_layer-1](x)
         x = self.model_layers[training_layer](x)
 
         # and use a linear layer for backprop
         x = self.intermediate_layers[training_layer](x)
+        if y is not None :
+            x+=y
+
         #for i in range(training_layer) :
         #    x=x+self.intermediate_layers[i](x)
         return x
