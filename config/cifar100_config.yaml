@@ -8,6 +8,7 @@ train_fraction: 1.0
 gradient_clip_val: 0.0
 num_workers: 20
 learning_rate: 1.0e-3
+periodicity: 2.0
 
 # The range of the polynomial [-2,2] when scale
 # is 4.  This is important beause outside of
@@ -19,7 +20,7 @@ scale: 4.0
 model_name: resnet18
 
 # cross_entropy or mse
-loss: mse
+loss: cross_entropy
 
 # resize the input and output channels. new_channel = int(old_channels/rescale_planes)
 rescale_planes: 1
@@ -28,7 +29,7 @@ rescale_planes: 1
 rescale_output: False
 
 # Train layer by layer or not
-layer_by_layer: True
+layer_by_layer: False
 
 # Number of training epochs for a given layer before moving onto the next.
 epochs_per_layer: 10
@@ -36,4 +37,4 @@ epochs_per_layer: 10
 num_classes: 100
 
 # Whether to clamp weights or not
-clamp_weights: True
+clamp_weights: False

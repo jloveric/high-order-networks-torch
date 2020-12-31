@@ -59,6 +59,7 @@ class AccuracyTopK(Metric):
 
 class Net(LightningModule):
     def __init__(self, cfg: DictConfig):
+
         super().__init__()
         self.save_hyperparameters(cfg)
         self._cfg = cfg
@@ -89,7 +90,7 @@ class Net(LightningModule):
                 self.model = getattr(models, cfg.model_name)(num_classes=100)
             else:
                 self.model = resnet_model(model_name=cfg.model_name, layer_type=self._layer_type,
-                                          n=self.n, segments=segments, num_classes=100,
+                                          n=self.n, segments=segments, num_classes=100, periodicity=cfg.periodicity,
                                           scale=cfg.scale, rescale_planes=cfg.rescale_planes,
                                           rescale_output=cfg.rescale_output,
                                           layer_by_layer=cfg.layer_by_layer)

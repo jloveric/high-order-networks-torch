@@ -10,8 +10,10 @@ import torch.nn as nn
 from torch.nn import BatchNorm2d as SpecialNorm
 #from .utils import load_state_dict_from_url
 from typing import Type, Any, Callable, Union, List, Optional
-from .high_order_layers import high_order_convolution
-from .high_order_layers import high_order_fully_connected_layer as fully_connected
+#from .high_order_layers import high_order_convolution
+#from .high_order_layers import high_order_fully_connected_layer as fully_connected
+from high_order_layers_torch.layers import *
+
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
            'resnet152', 'resnext50_32x4d', 'resnext101_32x8d',
@@ -41,14 +43,16 @@ class LayerNorm2d(x) :
         LayerNorm(xin)
 """
 
-class PassThrough() :
-    def __init__(self, *args, **kwargs) :
+
+class PassThrough():
+    def __init__(self, *args, **kwargs):
         pass
 
-    def __call__(self, x) :
+    def __call__(self, x):
         return x
 
 #SpecialNorm = PassThrough
+
 
 def conv3x3(layer_type: str, n: int, in_planes: int, out_planes: int, stride: int = 1,
             groups: int = 1, dilation: int = 1, segments: int = 1, scale: float = 4.0, **kwargs) -> nn.Conv2d:
@@ -57,8 +61,8 @@ def conv3x3(layer_type: str, n: int, in_planes: int, out_planes: int, stride: in
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
                      padding=dilation, groups=groups, bias=False, dilation=dilation)
     """
-    return high_order_convolution(layer_type=layer_type, n=n, segments=segments, in_channels=in_planes, out_channels=out_planes, kernel_size=3, stride=stride,
-                                  padding=dilation, groups=groups, bias=False, dilation=dilation, length=scale, **kwargs)
+    return high_order_convolution_layers(layer_type=layer_type, n=n, segments=segments, in_channels=in_planes, out_channels=out_planes, kernel_size=3, stride=stride,
+                                           padding=dilation, groups=groups, bias=False, dilation=dilation, length=scale, **kwargs)
 
 
 def conv1x1(layer_type: str, n: int, in_planes: int, out_planes: int, stride: int = 1, segments: int = 1, scale: float = 4.0, **kwargs) -> nn.Conv2d:
@@ -66,8 +70,8 @@ def conv1x1(layer_type: str, n: int, in_planes: int, out_planes: int, stride: in
     """
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
     """
-    return high_order_convolution(layer_type=layer_type, n=n, segments=segments, in_channels=in_planes,
-                                  out_channels=out_planes, kernel_size=1, stride=stride, bias=False, length=scale, **kwargs)
+    return high_order_convolution_layers(layer_type=layer_type, n=n, segments=segments, in_channels=in_planes,
+                                           out_channels=out_planes, kernel_size=1, stride=stride, bias=False, length=scale, **kwargs)
 
 
 class BasicBlock(nn.Module):
@@ -90,7 +94,7 @@ class BasicBlock(nn.Module):
         rescale_output: bool = False
     ) -> None:
         super(BasicBlock, self).__init__()
-        self._norm_layer=norm_layer
+        self._norm_layer = norm_layer
         if norm_layer is None:
             norm_layer = SpecialNorm
         if groups != 1 or base_width != 64:
@@ -220,6 +224,7 @@ class ResNet(nn.Module):
         rescale_planes: int = 1,  # rescale the original planes based on number of nodes
         rescale_output: bool = False,
         layer_by_layer: bool = True,
+        periodicity: float = None,
     ) -> None:
         super(ResNet, self).__init__()
         if norm_layer is None:
@@ -246,11 +251,11 @@ class ResNet(nn.Module):
         self.base_width = width_per_group
 
         self.layer0 = nn.Sequential(
-            high_order_convolution(
+            high_order_convolution_layers(
                 layer_type=layer_type, n=n, segments=segments, in_channels=3,
                 out_channels=self.inplanes, kernel_size=7, stride=2,
                 padding=3, bias=False, length=scale, rescale_output=rescale_output),
-            #norm_layer(self.inplanes),
+            norm_layer(self.inplanes),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         )
 
@@ -281,7 +286,7 @@ class ResNet(nn.Module):
             self.layer5
         ]
 
-        self.softmax= nn.Softmax(dim=1)
+        self.softmax = nn.Softmax(dim=1)
 
         # Now create a buncth of intermediate Linear layers
         self.layer0_intermediate = pool_linear(
@@ -338,7 +343,7 @@ class ResNet(nn.Module):
                 conv1x1(layer_type=self.layer_type, n=self.n, segments=self.segments,
                         in_planes=self.inplanes, out_planes=planes * block.expansion,
                         stride=stride, scale=self._scale, rescale_output=self._rescale_output),
-                #norm_layer(planes * block.expansion),
+                norm_layer(planes * block.expansion),
             )
 
         layers = []
@@ -355,7 +360,8 @@ class ResNet(nn.Module):
     def _forward_layer_by_layer(self, x: Tensor) -> Tensor:
 
         # no back prop or gradients for the preceeding layers
-        training_layer = min(self._training_layer, len(self.intermediate_layers)-1)
+        training_layer = min(self._training_layer,
+                             len(self.intermediate_layers)-1)
         #print('inside here')
         y = None
         with torch.no_grad():
@@ -367,20 +373,20 @@ class ResNet(nn.Module):
                 elif i>0: 
                     y+=self.intermediate_layers[i](x)
                 """
-            if training_layer-1 >=0 :
+            if training_layer-1 >= 0:
                 y = self.softmax(self.intermediate_layers[training_layer-1](x))
                 #y = self.intermediate_layers[training_layer-1](x)
         x = self.model_layers[training_layer](x)
 
         # and use a linear layer for backprop
         x = self.intermediate_layers[training_layer](x)
-        if y is not None :
-            x+=y
+        if y is not None:
+            x += y
 
-        #for i in range(training_layer) :
+        # for i in range(training_layer) :
         #    x=x+self.intermediate_layers[i](x)
         return x
-        
+
     def _forward_impl(self, x: Tensor) -> Tensor:
         # See note [TorchScript super()]
         x = self.layer0(x)
@@ -392,9 +398,9 @@ class ResNet(nn.Module):
         return x
 
     def forward(self, x: Tensor) -> Tensor:
-        if self._layer_by_layer is True :
+        if self._layer_by_layer is True:
             return self._forward_layer_by_layer(x)
-        else :
+        else:
             return self._forward_impl(x)
 
 
