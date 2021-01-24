@@ -255,7 +255,7 @@ class ResNet(nn.Module):
                 layer_type=layer_type, n=n, segments=segments, in_channels=3,
                 out_channels=self.inplanes, kernel_size=7, stride=2,
                 padding=3, bias=False, length=scale, rescale_output=rescale_output),
-            norm_layer(self.inplanes),
+            #norm_layer(self.inplanes),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         )
 
@@ -343,7 +343,7 @@ class ResNet(nn.Module):
                 conv1x1(layer_type=self.layer_type, n=self.n, segments=self.segments,
                         in_planes=self.inplanes, out_planes=planes * block.expansion,
                         stride=stride, scale=self._scale, rescale_output=self._rescale_output),
-                norm_layer(planes * block.expansion),
+                #norm_layer(planes * block.expansion),
             )
 
         layers = []

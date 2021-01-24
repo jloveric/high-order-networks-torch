@@ -90,7 +90,8 @@ class Net(LightningModule):
                 self.model = getattr(models, cfg.model_name)(num_classes=100)
             else:
                 self.model = resnet_model(model_name=cfg.model_name, layer_type=self._layer_type,
-                                          n=self.n, segments=segments, num_classes=100, periodicity=cfg.periodicity,
+                                          n=self.n, segments=segments, num_classes=100,
+                                          periodicity=cfg.periodicity,
                                           scale=cfg.scale, rescale_planes=cfg.rescale_planes,
                                           rescale_output=cfg.rescale_output,
                                           layer_by_layer=cfg.layer_by_layer)
@@ -189,16 +190,18 @@ class Net(LightningModule):
 
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=self._learning_rate)
-        #return optim.LBFGS(self.parameters(), lr=1, max_iter=20, history_size=100)
+        # return optim.LBFGS(self.parameters(), lr=1, max_iter=20, history_size=100)
 
     def on_before_zero_grad(self, *args, **kwargs):
         # clamp the weights here
         # This could be bad news for the linear layer.
-        if self._cfg.clamp_weights is True :
+        if self._cfg.clamp_weights is True:
             for param in self.model.parameters():
                 w = param.data
                 w = w.clamp(-1.0, 1.0)
 
+
+'''
 class WeightClipper(object):
 
     def __init__(self, max_weight: float = 1):
@@ -212,6 +215,7 @@ class WeightClipper(object):
             w = w.clamp(-self._max_weight, self._max_weight)
             module.weight.data = w
             print('I ACTUALLY CLIPPED WEIGHTS')
+'''
 
 
 @hydra.main(config_name="./config/cifar100_config")
@@ -223,8 +227,8 @@ def run_cifar100(cfg: DictConfig):
     trainer = Trainer(max_epochs=cfg.max_epochs, gpus=cfg.gpus,
                       gradient_clip_val=cfg.gradient_clip_val)
     model = Net(cfg)
-    clipper = WeightClipper()
-    model.apply(clipper)
+    #clipper = WeightClipper()
+    # model.apply(clipper)
 
     """
     for param in model.parameters():
