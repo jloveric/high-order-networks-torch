@@ -13,14 +13,9 @@ torchvision = "*"
 pytorch-lightning = "*"
 
 [requires]
-python_version = "3.8"
+python_version = "3"
 
 [packages.high-order-layers-torch]
 editable = true
 git = "git://github.com/jloveric/high-order-layers-torch"
-ref = "master"
-
-[packages.high_order_layers_torch]
-git = "git://github.com/jloveric/high-order-layers-torch"
-editable = true
 ref = "master"
