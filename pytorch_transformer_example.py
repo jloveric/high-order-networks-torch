@@ -16,16 +16,21 @@ import pytorch_lightning as pl
 import torch.utils.data as data
 
 
+def collate_fn() :
+    pass
+
 class SequenceDataset(data.Dataset):
     def __init__(self, data, bptt=35):
         self.data = data
         self.bptt = bptt
+        print('data', data[:10])
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
         seq_len = min(self.bptt, len(self.data) - 1 - idx)
+        #print('self.data.shape', self.data.shape)
         data = self.data[idx:idx+seq_len]
         target = self.data[idx+1:idx+1+seq_len].reshape(-1)
         return data, target
@@ -47,6 +52,7 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
+        #print('x.shape', x.shape,'pe.shape', self.pe.shape)
         x = x + self.pe[:x.size(0), :]
         return self.dropout(x)
 
@@ -55,6 +61,7 @@ class TransformerModel(pl.LightningModule):
 
     def __init__(self, ntokens, ninp, nhead, nhid, nlayers, dropout=0.5,num_workers=5):
         super(TransformerModel, self).__init__()
+        print('ntokens', ntokens)
         self.num_workers = num_workers
         self.ntokens = ntokens  # the size of vocabulary
         self.emsize = 200  # embedding dimension
@@ -114,9 +121,11 @@ class TransformerModel(pl.LightningModule):
 
         self.batch_size = 20
         self.eval_batch_size = 10
+        '''
         self.train_data = self.batchify(self.train_data, self.batch_size)
         self.val_data = self.batchify(self.val_data, self.eval_batch_size)
         self.test_data = self.batchify(self.test_data, self.eval_batch_size)
+        '''
 
         self.train_dataset = SequenceDataset(self.train_data)
         self.val_dataset = SequenceDataset(self.val_data)
@@ -137,23 +146,33 @@ class TransformerModel(pl.LightningModule):
 
     def forward(self, src, src_mask):
         src = self.encoder(src) * math.sqrt(self.ninp)
+        #print('src.shape', src.shape)
         src = self.pos_encoder(src)
         output = self.transformer_encoder(src, src_mask)
+        #print('encouder.shape', output.shape)
         output = self.decoder(output)
+        #print('decoder.shape', output.shape)
         return output
 
     def training_step(self, batch, batch_idx):
         src_mask = self.generate_square_subsequent_mask(sz=self.bptt)
-        print('batch', batch)
+        #print('batch', batch)
         x, y = batch
-
+        #print('x.shape', x.shape)
+        #x=x.permute(1,0,2)
         if x.size(0) != self.bptt:
             src_mask = self.generate_square_subsequent_mask(
                 x.size(0))
-        output = self(x, src_mask)
-        loss = self.criterion(output.view(-1, self.ntokens), y)
-        torch.nn.utils.clip_grad_norm_(self.parameters(), 0.5)
+        output = self.forward(x, src_mask)
+        #print('output.shape', output.shape, 'targets.shape', y.shape)
+        #loss = self.criterion(output.view(-1, self.ntokens), y)
+        loss = self.criterion(output.view(-1, self.ntokens), y.flatten())
         return loss
+
+    '''
+    def on_before_zero_grad(self, *args, **kwargs):
+        torch.nn.utils.clip_grad_norm_(self.parameters(), 0.5)
+    '''
 
     def val_step(self, batch, batch_idx):
         loss = self.evaluate(batch, batch_idx)
@@ -174,6 +193,7 @@ class TransformerModel(pl.LightningModule):
                 data.size(0))
 
         output = self(data, src_mask)
+        print('output.shape', output.shape, 'targets.shape', targets.shape)
         output_flat = output.view(-1, self.ntokens)
         loss = len(data) * \
             self.criterion(output_flat, targets).item()
@@ -195,7 +215,6 @@ class TransformerModel(pl.LightningModule):
     def test_dataloader(self):
         return data.DataLoader(dataset=self.test_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers)
 
-
 url = 'https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip'
 test_filepath, valid_filepath, train_filepath = extract_archive(
     download_from_url(url))
@@ -214,9 +233,8 @@ ninp=emsize# embedding size
 
 autoencoder = TransformerModel(
     ntokens=ntokens, ninp=ninp, nhid=nhid, nlayers=nlayers, nhead=nhead, dropout=dropout)
-trainer = pl.Trainer()
+trainer = pl.Trainer(gradient_clip_val=0.5)
 trainer.fit(autoencoder)
-
 
 '''
 url = '://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip'
@@ -293,6 +311,7 @@ def train():
             src_mask = model.generate_square_subsequent_mask(
                 data.size(0)).to(device)
         output = model(data, src_mask)
+        print('output.shape', output.shape, 'targets.shape', targets.shape)
         loss = criterion(output.view(-1, ntokens), targets)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
@@ -355,4 +374,5 @@ print('=' * 89)
 print('| End of training | test loss {:5.2f} | test ppl {:8.2f}'.format(
     test_loss, math.exp(test_loss)))
 print('=' * 89)
+
 '''
