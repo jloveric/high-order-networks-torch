@@ -216,5 +216,5 @@ ninp = emsize  # embedding size
 
 autoencoder = TransformerModel(
     ntokens=ntokens, ninp=ninp, nhid=nhid, nlayers=nlayers, nhead=nhead, dropout=dropout)
-trainer = pl.Trainer(gradient_clip_val=0.5)
+trainer = pl.Trainer(gradient_clip_val=0.5, gpus=1)
 trainer.fit(autoencoder)
