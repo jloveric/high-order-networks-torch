@@ -16,6 +16,8 @@ from torchtext.vocab import build_vocab_from_iterator
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 import pytorch_lightning as pl
 import torch.utils.data as data
+import hydra
+from omegaconf import DictConfig, OmegaConf
 
 
 def collate_fn():
@@ -23,12 +25,15 @@ def collate_fn():
 
 
 class SequenceDataset(data.Dataset):
-    def __init__(self, data, bptt=35):
-        self.data = data
+    def __init__(self, data, bptt=35, fraction=1.0):
+        even_split = bptt*(data.shape[0]//bptt)
+        this_size = int(data.shape[0]*fraction)
+        self.data = data[:this_size]  # data[:even_split]
         self.bptt = bptt
 
     def __len__(self):
-        return len(self.data)
+        # Needs to be a buffer for the target to be full length
+        return len(self.data)-self.bptt
 
     def __getitem__(self, idx):
         seq_len = min(self.bptt, len(self.data) - 1 - idx)
@@ -61,7 +66,7 @@ class PositionalEncoding(nn.Module):
 
 class TransformerModel(pl.LightningModule):
 
-    def __init__(self, ntokens, ninp, nhead, nhid, nlayers, dropout=0.5, num_workers=5):
+    def __init__(self, ntokens, ninp, nhead, nhid, nlayers, dropout=0.5, num_workers=5, fraction=1.0):
         super(TransformerModel, self).__init__()
 
         self.num_workers = num_workers
@@ -83,6 +88,7 @@ class TransformerModel(pl.LightningModule):
         self.decoder = nn.Linear(in_features=ninp, out_features=ntokens)
         self.criterion = nn.CrossEntropyLoss()
         self.bptt = 35
+        self.fraction = fraction
         self.init_weights()
 
     def prepare_data(self):
@@ -110,13 +116,18 @@ class TransformerModel(pl.LightningModule):
             iter(io.open(self.valid_filepath, encoding="utf8")))
         self.test_data = self.data_process(
             iter(io.open(self.test_filepath, encoding="utf8")))
+        print(len(self.train_data))
+        print(len(self.test_data))
 
         self.batch_size = 20
         self.eval_batch_size = 10
 
-        self.train_dataset = SequenceDataset(self.train_data)
-        self.val_dataset = SequenceDataset(self.val_data)
-        self.test_dataset = SequenceDataset(self.test_data)
+        self.train_dataset = SequenceDataset(
+            self.train_data, fraction=self.fraction)
+        self.val_dataset = SequenceDataset(
+            self.val_data, fraction=self.fraction)
+        self.test_dataset = SequenceDataset(
+            self.test_data, fraction=self.fraction)
 
     def generate_square_subsequent_mask(self, sz):
         mask = (torch.triu(torch.ones(sz, sz, device=self.device))
@@ -198,23 +209,31 @@ class TransformerModel(pl.LightningModule):
         return data.DataLoader(dataset=self.test_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers)
 
 
-url = 'https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip'
-test_filepath, valid_filepath, train_filepath = extract_archive(
-    download_from_url(url))
-tokenizer = get_tokenizer('basic_english')
-vocab = build_vocab_from_iterator(
-    map(tokenizer, iter(io.open(train_filepath, encoding="utf8"))))
+@hydra.main(config_path="config", config_name="transformer_config")
+def run(cfg: DictConfig):
 
+    url = 'https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip'
+    test_filepath, valid_filepath, train_filepath = extract_archive(
+        download_from_url(url))
+    tokenizer = get_tokenizer('basic_english')
+    vocab = build_vocab_from_iterator(
+        map(tokenizer, iter(io.open(train_filepath, encoding="utf8"))))
 
-ntokens = len(vocab.stoi)  # the size of vocabulary
-emsize = 200  # embedding dimension
-nhid = 200  # the dimension of the feedforward network model in nn.TransformerEncoder
-nlayers = 2  # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-nhead = 2  # the number of heads in the multiheadattention models
-dropout = 0.2  # the dropout value
-ninp = emsize  # embedding size
+    ntokens = len(vocab.stoi)  # the size of vocabulary
 
-autoencoder = TransformerModel(
-    ntokens=ntokens, ninp=ninp, nhid=nhid, nlayers=nlayers, nhead=nhead, dropout=dropout)
-trainer = pl.Trainer(gradient_clip_val=0.5, gpus=1)
-trainer.fit(autoencoder)
+    autoencoder = TransformerModel(
+        ntokens=ntokens,
+        ninp=cfg.ninp,
+        nhid=cfg.nhid,
+        nlayers=cfg.nlayers,
+        nhead=cfg.nhead,
+        dropout=cfg.dropout,
+        fraction=cfg.fraction
+    )
+
+    trainer = pl.Trainer(
+        gradient_clip_val=cfg.gradient_clip_val, gpus=cfg.gpus)
+    trainer.fit(autoencoder)
+
+if __name__ == "__main__":
+    run()
