@@ -144,17 +144,13 @@ class TransformerModel(pl.LightningModule):
 
     def forward(self, src, src_mask):
         src = self.encoder(src) * math.sqrt(self.ninp)
-        #print('src.shape', src.shape)
         src = self.pos_encoder(src)
         output = self.transformer_encoder(src, src_mask)
-        #print('encouder.shape', output.shape)
         output = self.decoder(output)
-        #print('decoder.shape', output.shape)
         return output
 
     def training_step(self, batch, batch_idx):
         src_mask = self.generate_square_subsequent_mask(sz=self.bptt)
-        #print('batch', batch)
         x, y = batch
         #print('x.shape', x.shape)
         # x=x.permute(1,0,2)
