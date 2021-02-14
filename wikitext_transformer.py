@@ -19,7 +19,7 @@ import torch.utils.data as data
 import hydra
 from omegaconf import DictConfig, OmegaConf
 from pathlib import Path
-
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 def collate_fn():
     pass
@@ -97,32 +97,27 @@ class TransformerModel(pl.LightningModule):
         # ok, so maybe this needs to be called elsewhere...
 
         url = 'https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip'
-        from_path = Path(f"{self.datadir}/.data/wikitext-2-v1.zip")
+        from_path = Path(f"{self.datadir}/data/wikitext-2-v1.zip")
         root = Path(f"{self.datadir}/data/")
         if from_path.exists() is False:
+            print('Downloading data')
             self.test_filepath, self.valid_filepath, self.train_filepath = extract_archive(
                 download_from_url(url=url, root=root.as_posix()))
         else:
-            self.log('Already downloaded.')
+            print('Already downloaded.')
             self.train_filepath = f"{self.datadir}/data/wikitext-2/wiki.train.tokens"
             self.test_filepath = f"{self.datadir}/data/wikitext-2/wiki.test.tokens"
             self.valid_filepath = f"{self.datadir}/data/wikitext-2/wiki.valid.tokens"
 
         
-        
-
     def data_process(self, raw_text_iter):
         data = [torch.tensor([self.vocab[token] for token in self.tokenizer(item)],
                              dtype=torch.long) for item in raw_text_iter]
         return torch.cat(tuple(filter(lambda t: t.numel() > 0, data)))
 
     def setup(self, step):
-        # step is either 'fit' or 'test' 90% of the time not relevant
-
-        
 
         #Finish creating the network
-        
         self.tokenizer = get_tokenizer('basic_english')
         vocab = build_vocab_from_iterator(
             map(self.tokenizer, iter(io.open(self.train_filepath, encoding="utf8"))))
@@ -241,8 +236,10 @@ def run(cfg: DictConfig):
         fraction=cfg.fraction
     )
 
+    checkpoint_callback = ModelCheckpoint(filename='{epoch}')
+
     trainer = pl.Trainer(
-        gradient_clip_val=cfg.gradient_clip_val, gpus=cfg.gpus)
+        gradient_clip_val=cfg.gradient_clip_val, gpus=cfg.gpus, callbacks=[checkpoint_callback])
     trainer.fit(autoencoder)
 
 
