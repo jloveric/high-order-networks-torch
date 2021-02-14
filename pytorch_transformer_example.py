@@ -18,6 +18,7 @@ import pytorch_lightning as pl
 import torch.utils.data as data
 import hydra
 from omegaconf import DictConfig, OmegaConf
+from pathlib import Path
 
 
 def collate_fn():
@@ -66,11 +67,13 @@ class PositionalEncoding(nn.Module):
 
 class TransformerModel(pl.LightningModule):
 
-    def __init__(self, ntokens, ninp, nhead, nhid, nlayers, dropout=0.5, num_workers=5, fraction=1.0):
+    def __init__(self, ninp, nhead, nhid, nlayers, dropout=0.5, num_workers=5, fraction=1.0):
         super(TransformerModel, self).__init__()
 
+        self.datadir = f"{hydra.utils.get_original_cwd()}/data"
+
         self.num_workers = num_workers
-        self.ntokens = ntokens  # the size of vocabulary
+        #self.ntokens = ntokens  # the size of vocabulary
         self.emsize = 200  # embedding dimension
         self.nhid = nhid  # the dimension of the feedforward network model in nn.TransformerEncoder
         # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
@@ -83,24 +86,30 @@ class TransformerModel(pl.LightningModule):
         self.pos_encoder = PositionalEncoding(ninp, dropout)
         encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout)
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
-        self.encoder = nn.Embedding(num_embeddings=ntokens, embedding_dim=ninp)
         self.ninp = ninp
-        self.decoder = nn.Linear(in_features=ninp, out_features=ntokens)
+
         self.criterion = nn.CrossEntropyLoss()
         self.bptt = 35
         self.fraction = fraction
-        self.init_weights()
 
     def prepare_data(self):
         # called only on 1 GPU
         # ok, so maybe this needs to be called elsewhere...
+
         url = 'https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip'
-        self.test_filepath, self.valid_filepath, self.train_filepath = extract_archive(
-            download_from_url(url))
-        self.tokenizer = get_tokenizer('basic_english')
-        vocab = build_vocab_from_iterator(
-            map(self.tokenizer, iter(io.open(self.train_filepath, encoding="utf8"))))
-        self.vocab = vocab
+        from_path = Path(f"{self.datadir}/.data/wikitext-2-v1.zip")
+        root = Path(f"{self.datadir}/data/")
+        if from_path.exists() is False:
+            self.test_filepath, self.valid_filepath, self.train_filepath = extract_archive(
+                download_from_url(url=url, root=root.as_posix()))
+        else:
+            self.log('Already downloaded.')
+            self.train_filepath = f"{self.datadir}/data/wikitext-2/wiki.train.tokens"
+            self.test_filepath = f"{self.datadir}/data/wikitext-2/wiki.test.tokens"
+            self.valid_filepath = f"{self.datadir}/data/wikitext-2/wiki.valid.tokens"
+
+        
+        
 
     def data_process(self, raw_text_iter):
         data = [torch.tensor([self.vocab[token] for token in self.tokenizer(item)],
@@ -110,6 +119,20 @@ class TransformerModel(pl.LightningModule):
     def setup(self, step):
         # step is either 'fit' or 'test' 90% of the time not relevant
 
+        
+
+        #Finish creating the network
+        
+        self.tokenizer = get_tokenizer('basic_english')
+        vocab = build_vocab_from_iterator(
+            map(self.tokenizer, iter(io.open(self.train_filepath, encoding="utf8"))))
+        self.vocab = vocab
+        self.ntokens = len(self.vocab.stoi)  # the size of vocabulary
+        self.encoder = nn.Embedding(num_embeddings=self.ntokens, embedding_dim=self.ninp)
+        self.decoder = nn.Linear(in_features=self.ninp, out_features=self.ntokens)
+        self.init_weights()
+
+        # Load data
         self.train_data = self.data_process(
             iter(io.open(self.train_filepath, encoding="utf8")))
         self.val_data = self.data_process(
@@ -128,6 +151,7 @@ class TransformerModel(pl.LightningModule):
             self.val_data, fraction=self.fraction)
         self.test_dataset = SequenceDataset(
             self.test_data, fraction=self.fraction)
+
 
     def generate_square_subsequent_mask(self, sz):
         mask = (torch.triu(torch.ones(sz, sz, device=self.device))
@@ -208,17 +232,7 @@ class TransformerModel(pl.LightningModule):
 @hydra.main(config_path="config", config_name="transformer_config")
 def run(cfg: DictConfig):
 
-    url = 'https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip'
-    test_filepath, valid_filepath, train_filepath = extract_archive(
-        download_from_url(url))
-    tokenizer = get_tokenizer('basic_english')
-    vocab = build_vocab_from_iterator(
-        map(tokenizer, iter(io.open(train_filepath, encoding="utf8"))))
-
-    ntokens = len(vocab.stoi)  # the size of vocabulary
-
     autoencoder = TransformerModel(
-        ntokens=ntokens,
         ninp=cfg.ninp,
         nhid=cfg.nhid,
         nlayers=cfg.nlayers,
@@ -230,6 +244,7 @@ def run(cfg: DictConfig):
     trainer = pl.Trainer(
         gradient_clip_val=cfg.gradient_clip_val, gpus=cfg.gpus)
     trainer.fit(autoencoder)
+
 
 if __name__ == "__main__":
     run()
