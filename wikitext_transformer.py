@@ -20,6 +20,8 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 from pathlib import Path
 from pytorch_lightning.callbacks import ModelCheckpoint
+from typing import Tuple
+
 
 def collate_fn():
     pass
@@ -65,15 +67,42 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 
+def get_data(store_data_path: str) -> Tuple[str]:
+    url = 'https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip'
+    from_path = Path(f"{store_data_path}/data/wikitext-2-v1.zip")
+    root = Path(f"{store_data_path}/data/")
+    if from_path.exists() is False:
+        print('Downloading data')
+        test_filepath, valid_filepath, train_filepath = extract_archive(
+            download_from_url(url=url, root=root.as_posix())
+        )
+    else:
+        print('Already downloaded.')
+        train_filepath = f"{store_data_path}/data/wikitext-2/wiki.train.tokens"
+        test_filepath = f"{store_data_path}/data/wikitext-2/wiki.test.tokens"
+        valid_filepath = f"{store_data_path}/data/wikitext-2/wiki.valid.tokens"
+
+    return train_filepath, test_filepath, valid_filepath
+
+
+def get_vocab(filepath: str):
+    tokenizer = get_tokenizer('basic_english')
+    vocab = build_vocab_from_iterator(
+        map(tokenizer, iter(io.open(filepath, encoding="utf8"))))
+    vocab = vocab
+    ntokens = len(vocab.stoi)
+    return tokenizer, vocab, ntokens
+
+
 class TransformerModel(pl.LightningModule):
 
-    def __init__(self, ninp, nhead, nhid, nlayers, dropout=0.5, num_workers=5, fraction=1.0):
+    def __init__(self, ninp: int, nhead: int, nhid: int, nlayers: int, dropout: int = 0.5, num_workers: int = 5, fraction: int = 1.0):
         super(TransformerModel, self).__init__()
-
+        self.save_hyperparameters()
         self.datadir = f"{hydra.utils.get_original_cwd()}/data"
 
         self.num_workers = num_workers
-        #self.ntokens = ntokens  # the size of vocabulary
+        # self.ntokens = ntokens  # the size of vocabulary
         self.emsize = 200  # embedding dimension
         self.nhid = nhid  # the dimension of the feedforward network model in nn.TransformerEncoder
         # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
@@ -92,40 +121,23 @@ class TransformerModel(pl.LightningModule):
         self.bptt = 35
         self.fraction = fraction
 
-    def prepare_data(self):
-        # called only on 1 GPU
-        # ok, so maybe this needs to be called elsewhere...
+        self.train_filepath, self.test_filepath, self.valid_filepath = get_data(
+            store_data_path=self.datadir)
+        self.tokenizer, self.vocab, self.ntokens = get_vocab(
+            filepath=self.train_filepath)
 
-        url = 'https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip'
-        from_path = Path(f"{self.datadir}/data/wikitext-2-v1.zip")
-        root = Path(f"{self.datadir}/data/")
-        if from_path.exists() is False:
-            print('Downloading data')
-            self.test_filepath, self.valid_filepath, self.train_filepath = extract_archive(
-                download_from_url(url=url, root=root.as_posix()))
-        else:
-            print('Already downloaded.')
-            self.train_filepath = f"{self.datadir}/data/wikitext-2/wiki.train.tokens"
-            self.test_filepath = f"{self.datadir}/data/wikitext-2/wiki.test.tokens"
-            self.valid_filepath = f"{self.datadir}/data/wikitext-2/wiki.valid.tokens"
+        self.encoder = nn.Embedding(
+            num_embeddings=self.ntokens, embedding_dim=self.ninp)
+        self.decoder = nn.Linear(
+            in_features=self.ninp, out_features=self.ntokens)
+        self.init_weights()
 
-        
     def data_process(self, raw_text_iter):
         data = [torch.tensor([self.vocab[token] for token in self.tokenizer(item)],
                              dtype=torch.long) for item in raw_text_iter]
         return torch.cat(tuple(filter(lambda t: t.numel() > 0, data)))
 
     def setup(self, step):
-
-        #Finish creating the network
-        self.tokenizer = get_tokenizer('basic_english')
-        vocab = build_vocab_from_iterator(
-            map(self.tokenizer, iter(io.open(self.train_filepath, encoding="utf8"))))
-        self.vocab = vocab
-        self.ntokens = len(self.vocab.stoi)  # the size of vocabulary
-        self.encoder = nn.Embedding(num_embeddings=self.ntokens, embedding_dim=self.ninp)
-        self.decoder = nn.Linear(in_features=self.ninp, out_features=self.ntokens)
-        self.init_weights()
 
         # Load data
         self.train_data = self.data_process(
@@ -146,7 +158,6 @@ class TransformerModel(pl.LightningModule):
             self.val_data, fraction=self.fraction)
         self.test_dataset = SequenceDataset(
             self.test_data, fraction=self.fraction)
-
 
     def generate_square_subsequent_mask(self, sz):
         mask = (torch.triu(torch.ones(sz, sz, device=self.device))
