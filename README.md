@@ -113,3 +113,13 @@ model_name is "simple"
 ```
 python cifar100.py -m max_epochs=60 train_fraction=1.0 layer_type=polynomial segments=1 n=6 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-3 scale=4.0 model_name=simple loss=cross_entropy rescale_planes=2 rescale_output=True layer_by_layer=True epochs_per_layer=20
 ```
+
+## Running transformer example
+Train
+```
+nothing here
+```
+predict
+```
+python wikitext_predict.py path=~/high-order-networks-pytorch/outputs/2021-02-14/15-09-33/lightning_logs/version_0 text="A bit of text"
+```

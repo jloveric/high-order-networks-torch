@@ -3,15 +3,18 @@ from omegaconf import DictConfig, OmegaConf
 from wikitext_transformer import TransformerModel
 from pathlib import Path
 import torch
-
+import os
 
 @hydra.main(config_path="config", config_name="wikitext_predict_config")
 def run(cfg: DictConfig):
 
     path = cfg.path
-    
+    checkpoint_path = Path(cfg.path) / "checkpoints"
+    checkpoint_list = os.listdir(checkpoint_path)
+    print('checkpoint_list', checkpoint_list)
+    checkpoint = checkpoint_path / checkpoint_list[0]
 
-    model = TransformerModel.load_from_checkpoint(cfg.checkpoint)
+    model = TransformerModel.load_from_checkpoint(checkpoint)
     data = torch.cat([torch.tensor([model.vocab[token]
                                     for token in model.tokenizer(cfg.text)])])
     model.eval()
@@ -30,13 +33,6 @@ def run(cfg: DictConfig):
     text_result = []
     for i in range(argmax.shape[0]):
         text_result.append([model.vocab.itos[index] for index in argmax[i]])
-
-        '''
-        for j in range(argmax.shape[1]) :
-            index = argmax[i][j]
-            print('max_arg', index)
-            print('value', model.vocab.itos[index])
-        '''
 
     print('cfg.text', cfg.text)
     print('vocab', text_result)
