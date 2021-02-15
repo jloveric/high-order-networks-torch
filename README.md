@@ -117,7 +117,7 @@ python cifar100.py -m max_epochs=60 train_fraction=1.0 layer_type=polynomial seg
 ## Running transformer example
 Train
 ```
-nothing here
+python wikitext_transformer.py fraction=1.0
 ```
 predict
 ```
