@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "high-order-networks-torch"
+version = "0.1.0"
+description = "Standard networks using high order layers"
+authors = ["jloveric <john.loverich@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+torch = "^1.9.1"
+torchvision = "^0.10.1"
+pytorch-lightning = "^1.4.9"
+torchtext = "^0.10.1"
+high-order-layers-torch = "^1.0.2"
+
+[tool.poetry.dev-dependencies]
+hydra-core = "^1.1.1"
+tensorboard = "^2.6.0"
+nevergrad = "^0.4.3"
+torch-optimizer = "^0.1.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
