@@ -62,6 +62,7 @@ class Net(LightningModule):
 
         super().__init__()
         self.save_hyperparameters(cfg)
+        self.automatic_optimization = False
         self._cfg = cfg
         self._data_dir = f"{hydra.utils.get_original_cwd()}/data"
 
@@ -129,6 +130,8 @@ class Net(LightningModule):
             train, [num_train, 10000, num_extra], generator=torch.Generator().manual_seed(1))
 
     def training_step(self, batch, batch_idx):
+        opt = self.optimizers()
+
         x, y = batch
         y_hat = self(x)
 
@@ -141,7 +144,10 @@ class Net(LightningModule):
         self.log(f'train_loss', loss, prog_bar=True)
         self.log(f'train_acc', acc, prog_bar=True)
         self.log(f'train_acc5', val, prog_bar=True)
-        return loss
+        opt.zero_grad()
+        self.manual_backward(loss, create_graph=True)
+        opt.step()
+        #return loss
 
     def train_dataloader(self):
         trainloader = torch.utils.data.DataLoader(
