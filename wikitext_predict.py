@@ -15,8 +15,11 @@ def run(cfg: DictConfig):
     checkpoint = checkpoint_path / checkpoint_list[0]
 
     model = TransformerModel.load_from_checkpoint(checkpoint)
-    data = torch.cat([torch.tensor([model.vocab[token]
-                                    for token in model.tokenizer(cfg.text)])])
+    data = torch.unsqueeze(torch.cat([torch.tensor([model.vocab[token]
+                                    for token in model.tokenizer(cfg.text)])]),dim=0)
+    #data = torch.cat([torch.tensor([model.vocab[token]
+    #                                for token in model.tokenizer(cfg.text)])])
+    print('data.shape', data.shape)
     model.eval()
 
     print('data', data)

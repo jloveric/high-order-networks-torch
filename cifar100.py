@@ -9,7 +9,7 @@ from pytorch_lightning.metrics import Metric
 import torch_optimizer as alt_optim 
 from high_order_networks_torch.resnet import resnet_model
 from high_order_networks_torch.simple_conv import SimpleConv
-
+import math
 from pytorch_lightning.metrics.functional import accuracy
 import hydra
 from omegaconf import DictConfig, OmegaConf
@@ -62,7 +62,9 @@ class Net(LightningModule):
 
         super().__init__()
         self.save_hyperparameters(cfg)
+        
         self.automatic_optimization = False
+
         self._cfg = cfg
         self._data_dir = f"{hydra.utils.get_original_cwd()}/data"
 
@@ -144,10 +146,16 @@ class Net(LightningModule):
         self.log(f'train_loss', loss, prog_bar=True)
         self.log(f'train_acc', acc, prog_bar=True)
         self.log(f'train_acc5', val, prog_bar=True)
+        
         opt.zero_grad()
-        self.manual_backward(loss, create_graph=True)
+        if self._cfg.optimizer in ["adahessian"] :
+            self.manual_backward(loss, create_graph=True)
+        else :
+            self.manual_backward(loss, create_graph=False)
         opt.step()
-        #return loss
+        if loss > 1e4 or math.isnan(loss):
+            print(f'Exited due to exploding loss {loss}')
+            raise ValueError(f"{loss} is out of range")
 
     def train_dataloader(self):
         trainloader = torch.utils.data.DataLoader(
@@ -195,16 +203,21 @@ class Net(LightningModule):
         return self.eval_step(batch, batch_idx, 'test')
 
     def configure_optimizers(self):
-        return alt_optim.Adahessian(
-            self.model.parameters(),
-            lr= 1.0,
-            betas= (0.9, 0.999),
-            eps= 1e-4,
-            weight_decay=0.0,
-            hessian_power=1.0,
-        )
-        #return optim.Adam(self.parameters(), lr=self._learning_rate)
-        # return optim.LBFGS(self.parameters(), lr=1, max_iter=20, history_size=100)
+        if self._cfg.optimizer == "adahessian" :
+            return alt_optim.Adahessian(
+                self.model.parameters(),
+                lr= 1.0,
+                betas= (0.9, 0.999),
+                eps= 1e-4,
+                weight_decay=0.0,
+                hessian_power=1.0,
+            )
+        elif self._cfg.optimizer == "adam" :
+            return optim.Adam(self.parameters(), lr=self._learning_rate)
+        elif self._cfg.optimizer == "lbfgs" :
+            return optim.LBFGS(self.parameters(), lr=1, max_iter=20, history_size=100)
+        else :
+            raise ValueError(f"Optimizer {self._cfg.optimizer} not recognized")
 
     def on_before_zero_grad(self, *args, **kwargs):
         # clamp the weights here

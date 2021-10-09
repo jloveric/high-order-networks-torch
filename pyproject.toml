@@ -6,12 +6,13 @@ authors = ["jloveric <john.loverich@gmail.com>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = ">=3.8,<3.11"
 torch = "^1.9.1"
 torchvision = "^0.10.1"
 pytorch-lightning = "^1.4.9"
 torchtext = "^0.10.1"
 high-order-layers-torch = "^1.0.2"
+hydra-nevergrad-sweeper = "^1.1.5"
 
 [tool.poetry.dev-dependencies]
 hydra-core = "^1.1.1"

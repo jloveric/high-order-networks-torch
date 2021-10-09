@@ -3,12 +3,13 @@ gpus: 1
 n: 5
 batch_size: 16 
 segments: 2
-layer_type: piecewise 
+layer_type: continuous 
 train_fraction: 1.0
 gradient_clip_val: 0.0
 num_workers: 20
 learning_rate: 1.0e-3
 periodicity: 2.0
+optimizer: adam
 
 # The range of the polynomial [-2,2] when scale
 # is 4.  This is important beause outside of
@@ -38,3 +39,37 @@ num_classes: 100
 
 # Whether to clamp weights or not
 clamp_weights: False
+
+defaults:
+ - override hydra/sweeper: nevergrad
+
+hydra:
+  sweeper:
+    optim:
+      # name of the nevergrad optimizer to use
+      # OnePlusOne is good at low budget, but may converge early
+      optimizer: OnePlusOne
+      # total number of function evaluations to perform
+      budget: 100
+      # number of parallel workers for performing function evaluations
+      num_workers: 10
+      # maximize: true  # comment out for maximization
+    # default parametrization of the search space
+    parametrization:
+      segments :
+        init: 2
+        lower: 2
+        upper: 20
+        integer: true
+      n :
+        init: 2
+        lower : 2
+        upper: 5
+        integer: true
+      optimizer :
+        - adam
+        - adahessian
+      gradient_clip_val: 
+        - 0
+        - 5
+
