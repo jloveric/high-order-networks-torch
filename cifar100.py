@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.metrics import Metric
-
+import torch_optimizer as alt_optim 
 from high_order_networks_torch.resnet import resnet_model
 from high_order_networks_torch.simple_conv import SimpleConv
 
@@ -99,8 +99,8 @@ class Net(LightningModule):
             self.model = SimpleConv(cfg)
 
     def forward(self, x):
-        self.model.set_training_layer(
-            self.current_epoch//self._epochs_per_layer)
+        #self.model.set_training_layer(
+        #    self.current_epoch//self._epochs_per_layer)
         ans = self.model(x)
         return ans
 
@@ -189,7 +189,15 @@ class Net(LightningModule):
         return self.eval_step(batch, batch_idx, 'test')
 
     def configure_optimizers(self):
-        return optim.Adam(self.parameters(), lr=self._learning_rate)
+        return alt_optim.Adahessian(
+            self.model.parameters(),
+            lr= 1.0,
+            betas= (0.9, 0.999),
+            eps= 1e-4,
+            weight_decay=0.0,
+            hessian_power=1.0,
+        )
+        #return optim.Adam(self.parameters(), lr=self._learning_rate)
         # return optim.LBFGS(self.parameters(), lr=1, max_iter=20, history_size=100)
 
     def on_before_zero_grad(self, *args, **kwargs):
