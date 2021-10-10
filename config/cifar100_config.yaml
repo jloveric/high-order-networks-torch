@@ -1,7 +1,7 @@
 max_epochs: 1
 gpus: 1 
 n: 5
-batch_size: 16 
+batch_size: 64
 segments: 2
 layer_type: continuous 
 train_fraction: 1.0
@@ -71,5 +71,4 @@ hydra:
         - adahessian
       gradient_clip_val: 
         - 0
-        - 5
 

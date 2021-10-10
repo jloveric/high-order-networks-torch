@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.metrics import Metric
-import torch_optimizer as alt_optim 
+import torch_optimizer as alt_optim
 from high_order_networks_torch.resnet import resnet_model
 from high_order_networks_torch.simple_conv import SimpleConv
 import math
@@ -15,7 +15,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 import os
 import torchvision.models as models
-
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 cifar10_mean = (0.4914, 0.4822, 0.4465)
 cifar100_mean = (0.5071, 0.4867, 0.4408)
@@ -62,7 +62,7 @@ class Net(LightningModule):
 
         super().__init__()
         self.save_hyperparameters(cfg)
-        
+
         self.automatic_optimization = False
 
         self._cfg = cfg
@@ -102,7 +102,7 @@ class Net(LightningModule):
             self.model = SimpleConv(cfg)
 
     def forward(self, x):
-        #self.model.set_training_layer(
+        # self.model.set_training_layer(
         #    self.current_epoch//self._epochs_per_layer)
         ans = self.model(x)
         return ans
@@ -146,16 +146,13 @@ class Net(LightningModule):
         self.log(f'train_loss', loss, prog_bar=True)
         self.log(f'train_acc', acc, prog_bar=True)
         self.log(f'train_acc5', val, prog_bar=True)
-        
+
         opt.zero_grad()
-        if self._cfg.optimizer in ["adahessian"] :
+        if self._cfg.optimizer in ["adahessian"]:
             self.manual_backward(loss, create_graph=True)
-        else :
+        else:
             self.manual_backward(loss, create_graph=False)
         opt.step()
-        if loss > 1e4 or math.isnan(loss):
-            print(f'Exited due to exploding loss {loss}')
-            raise ValueError(f"{loss} is out of range")
 
     def train_dataloader(self):
         trainloader = torch.utils.data.DataLoader(
@@ -203,20 +200,20 @@ class Net(LightningModule):
         return self.eval_step(batch, batch_idx, 'test')
 
     def configure_optimizers(self):
-        if self._cfg.optimizer == "adahessian" :
+        if self._cfg.optimizer == "adahessian":
             return alt_optim.Adahessian(
                 self.model.parameters(),
-                lr= 1.0,
-                betas= (0.9, 0.999),
-                eps= 1e-4,
+                lr=1.0,
+                betas=(0.9, 0.999),
+                eps=1e-4,
                 weight_decay=0.0,
                 hessian_power=1.0,
             )
-        elif self._cfg.optimizer == "adam" :
+        elif self._cfg.optimizer == "adam":
             return optim.Adam(self.parameters(), lr=self._learning_rate)
-        elif self._cfg.optimizer == "lbfgs" :
+        elif self._cfg.optimizer == "lbfgs":
             return optim.LBFGS(self.parameters(), lr=1, max_iter=20, history_size=100)
-        else :
+        else:
             raise ValueError(f"Optimizer {self._cfg.optimizer} not recognized")
 
     def on_before_zero_grad(self, *args, **kwargs):
@@ -251,8 +248,11 @@ def run_cifar100(cfg: DictConfig):
     print("Working directory : {}".format(os.getcwd()))
     print(f"Orig working directory    : {hydra.utils.get_original_cwd()}")
 
+    early_stop_callback = EarlyStopping(
+        monitor="train_loss", divergence_threshold=1.0e4, verbose=False, check_finite=True)
+
     trainer = Trainer(max_epochs=cfg.max_epochs, gpus=cfg.gpus,
-                      gradient_clip_val=cfg.gradient_clip_val)
+                      gradient_clip_val=cfg.gradient_clip_val, callbacks=[early_stop_callback])
     model = Net(cfg)
     #clipper = WeightClipper()
     # model.apply(clipper)
