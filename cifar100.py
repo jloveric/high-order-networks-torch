@@ -102,8 +102,6 @@ class Net(LightningModule):
             self.model = SimpleConv(cfg)
 
     def forward(self, x):
-        # self.model.set_training_layer(
-        #    self.current_epoch//self._epochs_per_layer)
         ans = self.model(x)
         return ans
 
@@ -152,7 +150,10 @@ class Net(LightningModule):
             self.manual_backward(loss, create_graph=True)
         else:
             self.manual_backward(loss, create_graph=False)
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), self._cfg.gradient_clip_val)
         opt.step()
+
+        return loss
 
     def train_dataloader(self):
         trainloader = torch.utils.data.DataLoader(
@@ -251,8 +252,7 @@ def run_cifar100(cfg: DictConfig):
     early_stop_callback = EarlyStopping(
         monitor="train_loss", divergence_threshold=1.0e4, verbose=False, check_finite=True)
 
-    trainer = Trainer(max_epochs=cfg.max_epochs, gpus=cfg.gpus,
-                      gradient_clip_val=cfg.gradient_clip_val, callbacks=[early_stop_callback])
+    trainer = Trainer(max_epochs=cfg.max_epochs, gpus=cfg.gpus, callbacks=[early_stop_callback])
     model = Net(cfg)
     #clipper = WeightClipper()
     # model.apply(clipper)
@@ -264,8 +264,16 @@ def run_cifar100(cfg: DictConfig):
 
     trainer.fit(model)
     print('testing')
-    trainer.test(model)
+    result = trainer.test(model)
+
+    print('result', result)
     print('finished testing')
+    print('best check_point', trainer.checkpoint_callback.best_model_path)
+
+    # We want to optimize on total error so that it is
+    # independent of loss function etc...
+    print('error fraction', 1-result[0]['test_acc'])
+    return 1.0-result[0]['test_acc']
 
 
 if __name__ == "__main__":

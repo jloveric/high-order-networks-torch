@@ -18,7 +18,7 @@ scale: 2.0
 
 # Currently only "resnets" transformed from torchvision
 # have been implemented.
-model_name: resnet18
+model_name: resnet10
 
 # cross_entropy or mse
 loss: cross_entropy
@@ -56,6 +56,8 @@ hydra:
       # maximize: true  # comment out for maximization
     # default parametrization of the search space
     parametrization:
+      layer_type :
+        - continuous
       segments :
         init: 2
         lower: 2
@@ -71,4 +73,6 @@ hydra:
         - adahessian
       gradient_clip_val: 
         - 0
+        - 1
+        - 5
 
