@@ -1,7 +1,7 @@
 max_epochs: 1
 gpus: 1 
 n: 5
-batch_size: 64
+batch_size: 128
 segments: 2
 layer_type: continuous 
 train_fraction: 1.0
@@ -14,7 +14,7 @@ optimizer: adam
 # The range of the polynomial [-2,2] when scale
 # is 4.  This is important beause outside of
 # the defined range the values rapidly explode
-scale: 4.0
+scale: 2.0
 
 # Currently only "resnets" transformed from torchvision
 # have been implemented.
