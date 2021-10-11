@@ -123,3 +123,9 @@ predict
 ```
 python wikitext_predict.py path=~/high-order-networks-pytorch/outputs/2021-02-14/15-09-33/lightning_logs/version_0 text="A bit of text"
 ```
+
+## Year later
+best parameters with resnet10
+```
+Best parameters: layer_type=continuous segments=2 n=2 optimizer=adahessian gradient_clip_val=1 max_epochs=20
+```
