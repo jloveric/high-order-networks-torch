@@ -3,7 +3,7 @@ gpus: 1
 n: 5
 batch_size: 128
 segments: 2
-layer_type: continuous 
+layer_type: continuous2d 
 train_fraction: 1.0
 gradient_clip_val: 0.0
 num_workers: 20
@@ -57,7 +57,7 @@ hydra:
     # default parametrization of the search space
     parametrization:
       layer_type :
-        - continuous
+        - continuous2d
       segments :
         init: 2
         lower: 2
