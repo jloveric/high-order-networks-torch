@@ -7,7 +7,8 @@ transformed to high order layers and convolutions.
 import torch
 from torch import Tensor
 import torch.nn as nn
-from torch.nn import BatchNorm2d as SpecialNorm
+#from torch.nn import BatchNorm2d as SpecialNorm
+from high_order_layers_torch.layers import MaxAbsNormalizationND as SpecialNorm
 
 # from .utils import load_state_dict_from_url
 from typing import Type, Any, Callable, Union, List, Optional
@@ -75,7 +76,7 @@ def conv3x3(
     groups: int = 1,
     dilation: int = 1,
     segments: int = 1,
-    scale: float = 4.0,
+    scale: float = 2.0,
     **kwargs
 ) -> nn.Conv2d:
     """3x3 convolution with padding"""
@@ -107,7 +108,7 @@ def conv1x1(
     out_planes: int,
     stride: int = 1,
     segments: int = 1,
-    scale: float = 4.0,
+    scale: float = 2.0,
     **kwargs
 ) -> nn.Conv2d:
     """1x1 convolution"""
@@ -145,7 +146,6 @@ class BasicBlock(nn.Module):
         norm_layer: Optional[Callable[..., nn.Module]] = None,
         segments: int = 1,
         scale: float = 4.0,
-        rescale_output: bool = False,
     ) -> None:
         super(BasicBlock, self).__init__()
         self._norm_layer = norm_layer
@@ -164,9 +164,8 @@ class BasicBlock(nn.Module):
             out_planes=planes,
             stride=stride,
             scale=scale,
-            rescale_output=rescale_output,
         )
-        self.bn1 = norm_layer(planes)
+        self.bn1 = norm_layer()
         # self.relu = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(
             layer_type=layer_type,
@@ -175,9 +174,8 @@ class BasicBlock(nn.Module):
             in_planes=planes,
             out_planes=planes,
             scale=scale,
-            rescale_output=rescale_output,
         )
-        self.bn2 = norm_layer(planes)
+        self.bn2 = norm_layer()
         self.downsample = downsample
         self.stride = stride
         self.layer_type = layer_type
@@ -229,7 +227,6 @@ class Bottleneck(nn.Module):
         norm_layer: Optional[Callable[..., nn.Module]] = None,
         segments: int = 1,
         scale: float = 4.0,
-        rescale_output: bool = False,
     ) -> None:
         super(Bottleneck, self).__init__()
         if norm_layer is None:
@@ -243,9 +240,8 @@ class Bottleneck(nn.Module):
             in_planes=inplanes,
             out_planes=width,
             scale=scale,
-            rescale_output=rescale_output,
         )
-        self.bn1 = norm_layer(width)
+        self.bn1 = norm_layer()
         self.conv2 = conv3x3(
             layer_type=layer_type,
             n=n,
@@ -256,9 +252,8 @@ class Bottleneck(nn.Module):
             groups=groups,
             dilation=dilation,
             scale=scale,
-            rescale_output=rescale_output,
         )
-        self.bn2 = norm_layer(width)
+        self.bn2 = norm_layer()
         self.conv3 = conv1x1(
             layer_type=layer_type,
             n=n,
@@ -266,9 +261,8 @@ class Bottleneck(nn.Module):
             in_planes=width,
             out_planes=planes * self.expansion,
             scale=scale,
-            rescale_output=rescale_output,
         )
-        self.bn3 = norm_layer(planes * self.expansion)
+        self.bn3 = norm_layer()
         # self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -310,15 +304,16 @@ class ResNet(nn.Module):
         layer_type: str = "polynomial",
         n: int = 3,
         segments: int = 1,
-        scale: float = 4.0,
+        scale: float = 2.0,
         rescale_planes: int = 1,  # rescale the original planes based on number of nodes
-        rescale_output: bool = False,
         layer_by_layer: bool = True,
         periodicity: float = None,
     ) -> None:
         super(ResNet, self).__init__()
         if norm_layer is None:
             norm_layer = SpecialNorm
+            print('using special norm')
+        print('norm_layer', norm_layer)
         self._norm_layer = norm_layer
         self.layer_type = layer_type
         self.n = n
@@ -326,7 +321,6 @@ class ResNet(nn.Module):
         self.inplanes = 64 // rescale_planes
         self.dilation = 1
         self._scale = scale
-        self._rescale_output = rescale_output
         self._training_layer = 0
         self._layer_by_layer = layer_by_layer
 
@@ -354,9 +348,8 @@ class ResNet(nn.Module):
                 padding=3,
                 bias=False,
                 length=scale,
-                rescale_output=rescale_output,
             ),
-            # norm_layer(self.inplanes),
+            norm_layer(),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
         )
 
@@ -424,9 +417,9 @@ class ResNet(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
-            elif isinstance(m, (SpecialNorm, nn.GroupNorm)):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
+            #elif isinstance(m, (SpecialNorm, nn.GroupNorm)):
+            #    nn.init.constant_(m.weight, 1)
+            #    nn.init.constant_(m.bias, 0)
 
         # Zero-initialize the last BN in each residual branch,
         # so that the residual branch starts with zeros, and each residual block behaves like an identity.
@@ -467,9 +460,8 @@ class ResNet(nn.Module):
                     out_planes=planes * block.expansion,
                     stride=stride,
                     scale=self._scale,
-                    rescale_output=self._rescale_output,
                 ),
-                # norm_layer(planes * block.expansion),
+                norm_layer(),
             )
 
         layers = []
@@ -487,7 +479,6 @@ class ResNet(nn.Module):
                 dilation=previous_dilation,
                 norm_layer=norm_layer,
                 scale=self._scale,
-                rescale_output=self._rescale_output,
             )
         )
         self.inplanes = planes * block.expansion
@@ -504,7 +495,6 @@ class ResNet(nn.Module):
                     dilation=self.dilation,
                     norm_layer=norm_layer,
                     scale=self._scale,
-                    rescale_output=self._rescale_output,
                 )
             )
 

@@ -1,20 +1,18 @@
 max_epochs: 1
 gpus: 1 
-n: 5
+n: 2
 batch_size: 128
 segments: 2
 layer_type: continuous2d 
-train_fraction: 1.0
+train_fraction: 0.1
 gradient_clip_val: 0.0
 num_workers: 20
-learning_rate: 1.0e-3
+learning_rate: 1.0e-4
 periodicity: 2.0
 optimizer: adam
 
-# The range of the polynomial [-2,2] when scale
-# is 4.  This is important beause outside of
-# the defined range the values rapidly explode
-scale: 2.0
+# [-1 to 1]
+scale: 2
 
 # Currently only "resnets" transformed from torchvision
 # have been implemented.

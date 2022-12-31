@@ -98,7 +98,6 @@ class Net(LightningModule):
                     periodicity=cfg.periodicity,
                     scale=cfg.scale,
                     rescale_planes=cfg.rescale_planes,
-                    rescale_output=cfg.rescale_output,
                     layer_by_layer=cfg.layer_by_layer,
                 )
         else:
