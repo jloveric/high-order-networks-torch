@@ -16,6 +16,7 @@ from omegaconf import DictConfig, OmegaConf
 import os
 import torchvision.models as models
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from lion_pytorch import Lion
 
 cifar10_mean = (0.4914, 0.4822, 0.4465)
 cifar100_mean = (0.5071, 0.4867, 0.4408)
@@ -148,8 +149,13 @@ class Net(LightningModule):
         y_hat = self(x)
 
         loss = self._loss(y_hat, y)
-        preds = torch.argmax(y_hat, dim=1)
-        acc = accuracy(preds, y)
+        #preds = torch.argmax(y_hat, dim=1)
+        
+        diff = torch.argmax(y_hat, dim=1) - y.flatten()
+        acc = torch.where(diff == 0, 1, 0).sum() / len(diff)
+
+
+        #acc = accuracy(preds, y)
         val = self._topk_metric(y_hat, y)
         val = self._topk_metric.compute()
 
@@ -215,9 +221,10 @@ class Net(LightningModule):
         # print('logits', logits)
         # exit()
         # print('loss', loss)
-        preds = torch.argmax(logits, dim=1)
 
-        acc = accuracy(preds, y)
+        diff = torch.argmax(logits, dim=1) - y.flatten()
+        acc = torch.where(diff == 0, 1, 0).sum() / len(diff)
+
         val = self._topk_metric(logits, y)
         val = self._topk_metric.compute()
 
@@ -243,6 +250,8 @@ class Net(LightningModule):
             )
         elif self._cfg.optimizer == "adam":
             return optim.Adam(self.parameters(), lr=self._learning_rate)
+        elif self._cfg.optimizer == "lion" :
+            return Lion(self.parameters(), lr=self._learning_rate)
         elif self._cfg.optimizer == "lbfgs":
             return optim.LBFGS(self.parameters(), lr=1, max_iter=20, history_size=100)
         else:
