@@ -9,6 +9,7 @@ from torchmetrics import Metric
 import torch_optimizer as alt_optim
 from high_order_networks_torch.resnet import resnet_model
 from high_order_networks_torch.simple_conv import SimpleConv
+from high_order_layers_torch.layers import MaxAbsNormalization
 import math
 from torchmetrics.functional import accuracy
 import hydra
@@ -100,6 +101,7 @@ class Net(LightningModule):
                     scale=cfg.scale,
                     rescale_planes=cfg.rescale_planes,
                     layer_by_layer=cfg.layer_by_layer,
+                    norm_layer=MaxAbsNormalization
                 )
         else:
             self.model = SimpleConv(cfg)

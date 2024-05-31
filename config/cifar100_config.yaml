@@ -7,8 +7,8 @@ layer_type: continuous2d
 train_fraction: 0.1
 gradient_clip_val: 0.0
 num_workers: 20
-learning_rate: 1.0e-4
-periodicity: 2.0
+learning_rate: 1.0e-5
+periodicity: null
 optimizer: adam
 
 # [-1 to 1]
