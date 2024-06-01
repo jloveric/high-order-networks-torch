@@ -4,19 +4,19 @@ import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from pytorch_lightning import LightningModule, Trainer
+from lightning.pytorch import LightningModule, Trainer
 from torchmetrics import Metric
 import torch_optimizer as alt_optim
 from high_order_networks_torch.resnet import resnet_model
 from high_order_networks_torch.simple_conv import SimpleConv
-from high_order_layers_torch.layers import MaxAbsNormalization
+from high_order_layers_torch.layers import MaxAbsNormalizationND
 import math
 from torchmetrics.functional import accuracy
 import hydra
 from omegaconf import DictConfig, OmegaConf
 import os
 import torchvision.models as models
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lion_pytorch import Lion
 
 cifar10_mean = (0.4914, 0.4822, 0.4465)
@@ -63,7 +63,9 @@ class Net(LightningModule):
         super().__init__()
         self.save_hyperparameters(cfg)
 
-        self.automatic_optimization = False
+        # TODO: As of this writing, I have somethigng messed up with manual
+        # optimization, so setting to True!
+        self.automatic_optimization = True
 
         self._cfg = cfg
         self._data_dir = f"{hydra.utils.get_original_cwd()}/data"
@@ -101,8 +103,8 @@ class Net(LightningModule):
                     scale=cfg.scale,
                     rescale_planes=cfg.rescale_planes,
                     layer_by_layer=cfg.layer_by_layer,
-                    #norm_layer=MaxAbsNormalization,
-                    weight_magnitude=0.01
+                    #norm_layer=MaxAbsNormalizationND,
+                    weight_magnitude=1.0
                 )
         else:
             self.model = SimpleConv(cfg)
@@ -146,7 +148,9 @@ class Net(LightningModule):
         )
 
     def training_step(self, batch, batch_idx):
-        opt = self.optimizers()
+        if self.automatic_optimization is False :
+            opt = self.optimizers()
+            opt.zero_grad()
 
         x, y = batch
         y_hat = self(x)
@@ -166,15 +170,15 @@ class Net(LightningModule):
         self.log(f"train_acc", acc, prog_bar=True)
         self.log(f"train_acc5", val, prog_bar=True)
 
-        opt.zero_grad()
-        if self._cfg.optimizer in ["adahessian"]:
-            self.manual_backward(loss, create_graph=True)
-        else:
-            self.manual_backward(loss, create_graph=False)
-        torch.nn.utils.clip_grad_norm_(
-            self.model.parameters(), self._cfg.gradient_clip_val
-        )
-        opt.step()
+        if self.automatic_optimization is False :
+            if self._cfg.optimizer in ["adahessian"]:
+                self.manual_backward(loss, create_graph=True)
+            else:
+                self.manual_backward(loss, create_graph=False)
+            torch.nn.utils.clip_grad_norm_(
+                self.model.parameters(), self._cfg.gradient_clip_val
+            )
+            opt.step()
 
         return loss
 
@@ -300,7 +304,7 @@ def run_cifar100(cfg: DictConfig):
     )
 
     trainer = Trainer(
-        max_epochs=cfg.max_epochs, accelerator="gpu", callbacks=[early_stop_callback]
+        max_epochs=cfg.max_epochs, accelerator="gpu", #callbacks=[early_stop_callback]
     )
     model = Net(cfg)
     # clipper = WeightClipper()

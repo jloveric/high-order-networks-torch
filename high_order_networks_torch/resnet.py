@@ -8,8 +8,8 @@ import torch
 from torch import Tensor
 import torch.nn as nn
 
-# from torch.nn import BatchNorm2d as SpecialNorm
-from high_order_layers_torch.layers import MaxAbsNormalizationND as SpecialNorm
+from torch.nn import BatchNorm2d as SpecialNorm
+#from high_order_layers_torch.layers import MaxAbsNormalizationND as SpecialNorm
 
 # from .utils import load_state_dict_from_url
 from typing import Type, Any, Callable, Union, List, Optional
@@ -429,8 +429,8 @@ class ResNet(nn.Module):
         # TODO: this may need to be commented out
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                pass
-                #nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+                print('initializing conv layer with kaiming')
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
             # elif isinstance(m, (SpecialNorm, nn.GroupNorm)):
             #    nn.init.constant_(m.weight, 1)
             #    nn.init.constant_(m.bias, 0)
