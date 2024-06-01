@@ -7,7 +7,8 @@ transformed to high order layers and convolutions.
 import torch
 from torch import Tensor
 import torch.nn as nn
-#from torch.nn import BatchNorm2d as SpecialNorm
+
+# from torch.nn import BatchNorm2d as SpecialNorm
 from high_order_layers_torch.layers import MaxAbsNormalizationND as SpecialNorm
 
 # from .utils import load_state_dict_from_url
@@ -146,6 +147,7 @@ class BasicBlock(nn.Module):
         norm_layer: Optional[Callable[..., nn.Module]] = None,
         segments: int = 1,
         scale: float = 4.0,
+        weight_magnitude: float = 1.0,
     ) -> None:
         super(BasicBlock, self).__init__()
         self._norm_layer = norm_layer
@@ -164,6 +166,7 @@ class BasicBlock(nn.Module):
             out_planes=planes,
             stride=stride,
             scale=scale,
+            weight_scale=weight_magnitude,
         )
         self.bn1 = norm_layer()
         # self.relu = nn.ReLU(inplace=True)
@@ -174,6 +177,7 @@ class BasicBlock(nn.Module):
             in_planes=planes,
             out_planes=planes,
             scale=scale,
+            weight_scale=weight_magnitude,
         )
         self.bn2 = norm_layer()
         self.downsample = downsample
@@ -227,6 +231,7 @@ class Bottleneck(nn.Module):
         norm_layer: Optional[Callable[..., nn.Module]] = None,
         segments: int = 1,
         scale: float = 4.0,
+        weight_magnitude: float = 1.0,
     ) -> None:
         super(Bottleneck, self).__init__()
         if norm_layer is None:
@@ -240,6 +245,7 @@ class Bottleneck(nn.Module):
             in_planes=inplanes,
             out_planes=width,
             scale=scale,
+            weight_magnitude=weight_magnitude,
         )
         self.bn1 = norm_layer()
         self.conv2 = conv3x3(
@@ -252,6 +258,7 @@ class Bottleneck(nn.Module):
             groups=groups,
             dilation=dilation,
             scale=scale,
+            weight_magnitude=weight_magnitude,
         )
         self.bn2 = norm_layer()
         self.conv3 = conv1x1(
@@ -261,6 +268,7 @@ class Bottleneck(nn.Module):
             in_planes=width,
             out_planes=planes * self.expansion,
             scale=scale,
+            weight_magnitude=weight_magnitude,
         )
         self.bn3 = norm_layer()
         # self.relu = nn.ReLU(inplace=True)
@@ -308,12 +316,13 @@ class ResNet(nn.Module):
         rescale_planes: int = 1,  # rescale the original planes based on number of nodes
         layer_by_layer: bool = True,
         periodicity: float = None,
+        weight_magnitude: float = 0.1,  # Initial uniform weight
     ) -> None:
         super(ResNet, self).__init__()
         if norm_layer is None:
             norm_layer = SpecialNorm
-            print('using special norm')
-        print('norm_layer', norm_layer)
+            print("using special norm")
+        print("norm_layer", norm_layer)
         self._norm_layer = norm_layer
         self.layer_type = layer_type
         self.n = n
@@ -348,6 +357,7 @@ class ResNet(nn.Module):
                 padding=3,
                 bias=False,
                 length=scale,
+                weight_magnitude=weight_magnitude,
             ),
             norm_layer(),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
@@ -360,6 +370,7 @@ class ResNet(nn.Module):
             layers[1],
             stride=2,
             dilate=replace_stride_with_dilation[0],
+            weight_magnitude=weight_magnitude,
         )
         self.layer3 = self._make_layer(
             block,
@@ -367,6 +378,7 @@ class ResNet(nn.Module):
             layers[2],
             stride=2,
             dilate=replace_stride_with_dilation[1],
+            weight_magnitude=weight_magnitude,
         )
         self.layer4 = self._make_layer(
             block,
@@ -374,6 +386,7 @@ class ResNet(nn.Module):
             layers[3],
             stride=2,
             dilate=replace_stride_with_dilation[2],
+            weight_magnitude=weight_magnitude
         )
 
         def pool_linear(in_channels: int, out_channels: int):
@@ -416,8 +429,9 @@ class ResNet(nn.Module):
         # TODO: this may need to be commented out
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
-            #elif isinstance(m, (SpecialNorm, nn.GroupNorm)):
+                pass
+                #nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+            # elif isinstance(m, (SpecialNorm, nn.GroupNorm)):
             #    nn.init.constant_(m.weight, 1)
             #    nn.init.constant_(m.bias, 0)
 
@@ -443,6 +457,7 @@ class ResNet(nn.Module):
         blocks: int,
         stride: int = 1,
         dilate: bool = False,
+        weight_magnitude: float=1.0,
     ) -> nn.Sequential:
         norm_layer = self._norm_layer
         downsample = None
@@ -460,6 +475,7 @@ class ResNet(nn.Module):
                     out_planes=planes * block.expansion,
                     stride=stride,
                     scale=self._scale,
+                    weight_magnitude=weight_magnitude,
                 ),
                 norm_layer(),
             )
@@ -479,6 +495,7 @@ class ResNet(nn.Module):
                 dilation=previous_dilation,
                 norm_layer=norm_layer,
                 scale=self._scale,
+                weight_magnitude=weight_magnitude,
             )
         )
         self.inplanes = planes * block.expansion
@@ -495,6 +512,7 @@ class ResNet(nn.Module):
                     dilation=self.dilation,
                     norm_layer=norm_layer,
                     scale=self._scale,
+                    weight_magnitude=weight_magnitude,
                 )
             )
 

@@ -101,7 +101,8 @@ class Net(LightningModule):
                     scale=cfg.scale,
                     rescale_planes=cfg.rescale_planes,
                     layer_by_layer=cfg.layer_by_layer,
-                    norm_layer=MaxAbsNormalization
+                    norm_layer=MaxAbsNormalization,
+                    weight_magnitude=0.01
                 )
         else:
             self.model = SimpleConv(cfg)
