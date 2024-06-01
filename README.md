@@ -30,10 +30,10 @@ python examples/cifar100.py max_epochs=100 train_fraction=1.0 layer_type=standar
 ### Polynomial convolutional layers
 
 ```python
-python examples/cifar100.py max_epochs=20 train_fraction=1.0 layer_type=polynomial2d n=3 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-4 scale=6 layer_by_layer=False
+python examples/cifar100.py max_epochs=1000 train_fraction=1.0 layer_type=polynomial2d n=3 batch_size=1024 gradient_clip_val=0.0 learning_rate=1e-4 scale=6 layer_by_layer=False optimizer=lion
 ```
 ```python
-python examples/cifar100.py max_epochs=20 train_fraction=1.0 layer_type=polynomial2d n=4 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-4 scale=8 model_name=resnet10 layer_by_layer=False
+python examples/cifar100.py max_epochs=20 train_fraction=1.0 layer_type=polynomial2d n=4 batch_size=1024 gradient_clip_val=0.0 learning_rate=1e-4 scale=8 model_name=resnet10 layer_by_layer=False optimizer=lion
 ```
 ```python
 python examples/cifar100.py max_epochs=20 train_fraction=1.0 layer_type=polynomial2d n=4 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-4 scale=10 model_name=resnet18 layer_by_layer=False
@@ -76,7 +76,7 @@ python examples/cifar100.py max_epochs=100 train_fraction=1.0 layer_type=fourier
 ### Piecewise polynomial convolutional layers
 Simple polynomial convolutional layers
 ```python
-python examples/cifar100.py -m  max_epochs=100 train_fraction=1.0 layer_type=piecewise segments=2 n=3 batch_size=128 gradient_clip_val=1.0 learning_rate=1e-3 scale=2.0 model_name=resnet10 loss=cross_entropy rescale_planes=1 rescale_output=True layer_by_layer=False
+python examples/cifar100.py -m  max_epochs=100 train_fraction=1.0 layer_type=continuous2d segments=2 n=3 batch_size=128 gradient_clip_val=1.0 learning_rate=1e-3 scale=2.0 model_name=resnet10 loss=cross_entropy rescale_planes=1 rescale_output=True layer_by_layer=False
 ```
 ```python
 {'test_acc': tensor(0.3771, device='cuda:0'),

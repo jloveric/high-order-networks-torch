@@ -11,7 +11,8 @@ from high_order_networks_torch.resnet import resnet_model
 from high_order_networks_torch.simple_conv import SimpleConv
 from high_order_layers_torch.layers import MaxAbsNormalizationND
 import math
-from torchmetrics.functional import accuracy
+from torcheval.metrics.functional import multiclass_accuracy as accuracy
+
 import hydra
 from omegaconf import DictConfig, OmegaConf
 import os
@@ -33,28 +34,6 @@ rescale = 2.0
 cifar100_2std = (0.2675 * rescale, 0.2565 * rescale, 0.2761 * rescale)
 
 cifar100_std = cifar100_2std
-
-
-class AccuracyTopK(Metric):
-    """
-    This will eventually be in pytorch-lightning, not yet merged so here it is.
-    """
-
-    def __init__(self, top_k=1, dist_sync_on_step=False):
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.k = top_k
-        self.add_state("correct", default=torch.tensor(0.0), dist_reduce_fx="sum")
-        self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
-
-    def update(self, logits, y):
-        _, pred = logits.topk(self.k, dim=1)
-        pred = pred.t()
-        corr = pred.eq(y.view(1, -1).expand_as(pred))
-        self.correct += corr[: self.k].sum()
-        self.total += y.numel()
-
-    def compute(self):
-        return self.correct.float() / self.total
 
 
 class Net(LightningModule):
@@ -79,7 +58,7 @@ class Net(LightningModule):
         self._learning_rate = cfg.learning_rate
         self._scale = cfg.scale
         segments = cfg.segments
-        self._topk_metric = AccuracyTopK(top_k=5)
+
         self._epochs_per_layer = cfg.epochs_per_layer
 
         if cfg.loss == "cross_entropy":
@@ -104,7 +83,7 @@ class Net(LightningModule):
                     rescale_planes=cfg.rescale_planes,
                     layer_by_layer=cfg.layer_by_layer,
                     #norm_layer=MaxAbsNormalizationND,
-                    weight_magnitude=1.0
+                    weight_magnitude=1.0e-2
                 )
         else:
             self.model = SimpleConv(cfg)
@@ -152,24 +131,9 @@ class Net(LightningModule):
             opt = self.optimizers()
             opt.zero_grad()
 
-        x, y = batch
-        y_hat = self(x)
+        loss = self.eval_step(batch, batch_idx, 'train')
 
-        loss = self._loss(y_hat, y)
-        #preds = torch.argmax(y_hat, dim=1)
         
-        diff = torch.argmax(y_hat, dim=1) - y.flatten()
-        acc = torch.where(diff == 0, 1, 0).sum() / len(diff)
-
-
-        #acc = accuracy(preds, y)
-        val = self._topk_metric(y_hat, y)
-        val = self._topk_metric.compute()
-
-        self.log(f"train_loss", loss, prog_bar=True)
-        self.log(f"train_acc", acc, prog_bar=True)
-        self.log(f"train_acc5", val, prog_bar=True)
-
         if self.automatic_optimization is False :
             if self._cfg.optimizer in ["adahessian"]:
                 self.manual_backward(loss, create_graph=True)
@@ -232,13 +196,15 @@ class Net(LightningModule):
         diff = torch.argmax(logits, dim=1) - y.flatten()
         acc = torch.where(diff == 0, 1, 0).sum() / len(diff)
 
-        val = self._topk_metric(logits, y)
-        val = self._topk_metric.compute()
+        top1 = accuracy(logits, y, k=1)
+        top5 = accuracy(logits, y, k=5)
 
         # Calling self.log will surface up scalars for you in TensorBoard
         self.log(f"{name}_loss", loss, prog_bar=True)
         self.log(f"{name}_acc", acc, prog_bar=True)
-        self.log(f"{name}_acc5", val, prog_bar=True)
+        self.log(f"{name}_acc1", top1, prog_bar=True)
+        self.log(f"{name}_acc5", top5, prog_bar=True)
+
         return loss
 
     def test_step(self, batch, batch_idx):
