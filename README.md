@@ -1,7 +1,7 @@
 # High Order Networks in PyTorch
 
 These are high order networks using the high order layers defined in the repo [here](https://github.com/jloveric/high-order-layers-torch).  This is an unfinished experiment where I'm trying to get the resnet performance using high order layers to at least match the standard approach.  So far fourier series layers do decent, high order piecewise polynomial layers are stable for a resnet10. However, I can rapidly get perfect accuracy on the training set with quadratic or higher (either piecewise or non-piecewsie polynomials), I believe I should actually be trying a much smaller model than resnet10 since the high order networks should require
-far fewer parameters.
+far fewer parameters. Alternatively, try this with a much larger dataset.
 
 ## Implemented Networks
 
