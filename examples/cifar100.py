@@ -222,13 +222,21 @@ class Net(LightningModule):
                 hessian_power=1.0,
             )
         elif self._cfg.optimizer == "adam":
-            return optim.Adam(self.parameters(), lr=self._learning_rate)
+            optimizer = optim.Adam(self.parameters(), lr=self._learning_rate)
         elif self._cfg.optimizer == "lion" :
-            return Lion(self.parameters(), lr=self._learning_rate)
+            optimizer = Lion(self.parameters(), lr=self._learning_rate)
         elif self._cfg.optimizer == "lbfgs":
-            return optim.LBFGS(self.parameters(), lr=1, max_iter=20, history_size=100)
+            optimizer = optim.LBFGS(self.parameters(), lr=1, max_iter=20, history_size=100)
         else:
             raise ValueError(f"Optimizer {self._cfg.optimizer} not recognized")
+        
+        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            patience=self.cfg.scheduler_patience,
+            factor=self.cfg.scheduler_factor,
+            verbose=True,
+        )
+        return [optimizer], [lr_scheduler]
 
     def on_before_zero_grad(self, *args, **kwargs):
         # clamp the weights here
@@ -237,23 +245,6 @@ class Net(LightningModule):
             for param in self.model.parameters():
                 w = param.data
                 w = w.clamp(-1.0, 1.0)
-
-
-"""
-class WeightClipper(object):
-
-    def __init__(self, max_weight: float = 1):
-        self._max_weight = max_weight
-
-    def __call__(self, module):
-        print('INSIDE WEIGHT CLIPPER CALL!')
-        # filter the variables to get the ones you want
-        if hasattr(module, 'weight'):
-            w = module.weight.data
-            w = w.clamp(-self._max_weight, self._max_weight)
-            module.weight.data = w
-            print('I ACTUALLY CLIPPED WEIGHTS')
-"""
 
 
 @hydra.main(config_path="../config", config_name="cifar100_config")

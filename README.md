@@ -1,6 +1,7 @@
 # High Order Networks in PyTorch
 
-These are high order networks using the high order layers defined in the repo [here](https://github.com/jloveric/high-order-layers-torch).  This is an unfinished experiment where I'm trying to get the resnet performance using high order layers to at least match the standard approach.  So far fourier series layers do decent, high order piecewise polynomial layers are stable for a resnet10, but are unstable beyond that despite using periodicity to prevent unbounded growth of derivatives...  Anyway, continues to be a work in progress and probably a lot more hacks to really get it working.
+These are high order networks using the high order layers defined in the repo [here](https://github.com/jloveric/high-order-layers-torch).  This is an unfinished experiment where I'm trying to get the resnet performance using high order layers to at least match the standard approach.  So far fourier series layers do decent, high order piecewise polynomial layers are stable for a resnet10. However, I can rapidly get perfect accuracy on the training set with quadratic or higher (either piecewise or non-piecewsie polynomials), I believe I should actually be trying a much smaller model than resnet10 since the high order networks should require
+far fewer parameters.
 
 ## Implemented Networks
 
@@ -30,13 +31,35 @@ python examples/cifar100.py max_epochs=100 train_fraction=1.0 layer_type=standar
 ### Polynomial convolutional layers
 
 ```python
-python examples/cifar100.py max_epochs=1000 train_fraction=1.0 layer_type=polynomial2d n=3 batch_size=1024 gradient_clip_val=0.0 learning_rate=1e-4 scale=6 layer_by_layer=False optimizer=lion
+python examples/cifar100.py max_epochs=1000 train_fraction=1.0 layer_type=polynomial2d n=3 batch_size=1024 gradient_clip_val=0.0 learning_rate=1e-4 scale=6 layer_by_layer=False optimizer=lion model_name=resnet10
 ```
+with test results, the training top5 is basically 100% accurate. Highly overfit.
+```
+[{'test_loss': 33.931854248046875, 'test_acc': 0.28209999203681946, 'test_acc1': 0.28209999203681946, 'test_acc5': 0.49720001220703125}]
+```
+
+
 ```python
 python examples/cifar100.py max_epochs=20 train_fraction=1.0 layer_type=polynomial2d n=4 batch_size=1024 gradient_clip_val=0.0 learning_rate=1e-4 scale=8 model_name=resnet10 layer_by_layer=False optimizer=lion
 ```
 ```python
 python examples/cifar100.py max_epochs=20 train_fraction=1.0 layer_type=polynomial2d n=4 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-4 scale=10 model_name=resnet18 layer_by_layer=False
+```
+Linear case with n=2 on resnet10
+```
+python examples/cifar100.py max_epochs=1000 train_fraction=1.0 layer_type=polynomial2d n=2 batch_size=1024 gradient_clip_val=0.0 learning_rate=1e-4 scale=6 layer_by_layer=False optimizer=lion
+```
+with results
+```
+[{'test_loss': 2.6638987064361572, 'test_acc': 0.3310000002384186, 'test_acc1': 0.3310000002384186, 'test_acc5': 0.6402000188827515}]
+```
+with resnet18 using linear
+```
+python examples/cifar100.py max_epochs=1000 train_fraction=1.0 layer_type=polynomial2d n=2 batch_size=1024 gradient_clip_val=0.0 learning_rate=1e-4 scale=2 layer_by_layer=False optimizer=lion model_name=resnet18
+```
+and results (all using maxabs normalization - infinity norm noramlization)
+```
+[{'test_loss': 2.2048048973083496, 'test_acc': 0.4456000030040741, 'test_acc1': 0.4456000030040741, 'test_acc5': 0.7317000031471252}]
 ```
 ## Fourier Series
 
