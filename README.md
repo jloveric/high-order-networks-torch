@@ -1,7 +1,12 @@
 # High Order Networks in PyTorch
 
-These are high order networks using the high order layers defined in the repo [here](https://github.com/jloveric/high-order-layers-torch).  This is an unfinished experiment where I'm trying to get the resnet performance using high order layers to at least match the standard approach.  So far fourier series layers do decent, high order piecewise polynomial layers are stable for a resnet10. However, I can rapidly get perfect accuracy on the training set with quadratic or higher (either piecewise or non-piecewsie polynomials), I believe I should actually be trying a much smaller model than resnet10 since the high order networks should require
+These are high order networks using the high order layers defined in the repo [here](https://github.com/jloveric/high-order-layers-torch).  This is an unfinished experiment where I'm trying to get the resnet performance using high order layers to at least match the standard approach.  So far fourier series layers do decent, I can also get results with piecewise polynomial layers - random constant initialization
+seems to be key vs kaiming which introduces too much oscillation to begin with. However, I can rapidly get perfect accuracy on the training set with quadratic or higher (either piecewise or non-piecewsie polynomials), I believe I should actually be trying a much smaller model than resnet10 since the high order networks should require
 far fewer parameters. Alternatively, try this with a much larger dataset.
+
+## Notes
+
+It seems the important thing is random constant initialization, normalization - I'm using infinity norm which probably isn't the best but I like because it keeps values in the correct range for polynomial problems and then lion. I'm getting overfitting except the linear case which is slow to converge. Non-linearity is introduced by the normalization so they do much better than I expected (but not well aware with cifar100 training). Piecewise polynomial training is much slower than polynomial so I need to speed up the algorithm.
 
 ## Implemented Networks
 
@@ -112,6 +117,24 @@ python examples/cifar100.py -m  max_epochs=100 train_fraction=1.0 layer_type=con
  'val_acc5': tensor(0.6532, device='cuda:0'),
  'val_loss': tensor(3.4837, device='cuda:0')}
 ```
+Couple years later, no clipping using constant initialization 
+```
+python examples/cifar100.py max_epochs=100 train_fraction=1.0 layer_type=continuous2d segments=2 n=3 batch_size=1024 gradient_clip_val=0.0 learning_rate=1e-5 scale=2.0 model_name=resnet10 loss=cross_entropy rescale_planes=1 layer_by_layer=False optimizer=lion
+```
+results
+```
+result [{'test_loss': 4.571002006530762, 'test_acc': 0.34369999170303345, 'test_acc1': 0.34369999170303345, 'test_acc5': 0.6175000071525574}]
+```
+and with a resnet18
+```
+python examples/cifar100.py max_epochs=100 train_fraction=1.0 layer_type=continuous2d segments=2 n=3 batch_size=1024 gradient_clip_val=0.0 learning_rate=1e-5 scale=2.0 model_name=resnet18 loss=cross_entropy rescale_planes=1 layer_by_layer=False optimizer=lion
+```
+with result
+```
+[{'test_loss': 4.950081825256348, 'test_acc': 0.29280000925064087, 'test_acc1': 0.29280000925064087, 'test_acc5': 0.5515000224113464}]
+```
+the larger network resnet18 overfits faster than the smaller network (better training score with lower generalization), not surprising
+
 ### Discontinuous polynomial convolutional layers
 ```python
 python cifar100.py -m  max_epochs=100 train_fraction=1.0 layer_type=discontinuous2d segments=2 n=3 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-3 scale=2.0 model_name=resnet10 loss=cross_entropy rescale_planes=3 rescale_output=True layer_by_layer=False
