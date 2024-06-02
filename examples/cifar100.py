@@ -17,7 +17,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 import os
 import torchvision.models as models
-from lightning.pytorch.callbacks.early_stopping import EarlyStopping
+from lightning.pytorch.callbacks import EarlyStopping, LearningRateMonitor 
 from lion_pytorch import Lion
 
 cifar10_mean = (0.4914, 0.4822, 0.4465)
@@ -188,6 +188,9 @@ class Net(LightningModule):
         # print('logits.shape', logits.shape)
         # This should b F.cross_entropy
         # loss = F.nll_loss(logits, y)
+        #print('logits', logits)
+        logits = torch.nan_to_num(logits, nan=0.0, posinf=0.0, neginf=0.0)
+
         loss = self._loss(logits, y)
         # print('logits', logits)
         # exit()
@@ -232,11 +235,18 @@ class Net(LightningModule):
         
         lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
-            patience=self.cfg.scheduler_patience,
-            factor=self.cfg.scheduler_factor,
+            patience=self._cfg.scheduler_patience,
+            factor=self._cfg.scheduler_factor,
             verbose=True,
         )
-        return [optimizer], [lr_scheduler]
+
+        scheduler = {
+                "scheduler": lr_scheduler,
+                "reduce_on_plateau": True,
+                "monitor": "train_loss",
+            }
+
+        return [optimizer], [scheduler]
 
     def on_before_zero_grad(self, *args, **kwargs):
         # clamp the weights here
@@ -259,9 +269,10 @@ def run_cifar100(cfg: DictConfig):
         verbose=False,
         check_finite=True,
     )
+    lr_monitor = LearningRateMonitor(logging_interval="epoch")
 
     trainer = Trainer(
-        max_epochs=cfg.max_epochs, accelerator="gpu", #callbacks=[early_stop_callback]
+        max_epochs=cfg.max_epochs, accelerator="gpu", callbacks=[lr_monitor]
     )
     model = Net(cfg)
     # clipper = WeightClipper()
