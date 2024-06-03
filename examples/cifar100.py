@@ -246,7 +246,9 @@ class Net(LightningModule):
                 "monitor": "train_loss",
             }
 
-        return [optimizer], [scheduler]
+        # don't want the scheduler right now
+        return optimizer
+        #return [optimizer], [scheduler]
 
     def on_before_zero_grad(self, *args, **kwargs):
         # clamp the weights here

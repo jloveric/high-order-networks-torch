@@ -6,6 +6,9 @@ far fewer parameters. Alternatively, try this with a much larger dataset.
 
 ## Notes
 
+In this repo there is a "rescale_planes" factor. This is used because the conv layers are expanded by the high order approach to include
+multiple weights per channel. A discontinuous conv would be scaled by channels=segments*nodes_per_segment*original_num_channels so in this case you should divide channels by (segments*nodes_per_segment) to get the same number of parameters. For polynomial you would divide by "nodes_per_segment" since there is only one node and for continuous it would be approximately (node_per_segement-1)*segments
+
 It seems the important thing is random constant initialization, normalization - I'm using infinity norm which probably isn't the best but I like because it keeps values in the correct range for polynomial problems and then lion. I'm getting overfitting except the linear case which is slow to converge. Non-linearity is introduced by the normalization so they do much better than I expected (but not well aware with cifar100 training). Piecewise polynomial training is much slower than polynomial so I need to speed up the algorithm.
 
 ## Implemented Networks
@@ -36,7 +39,7 @@ python examples/cifar100.py max_epochs=100 train_fraction=1.0 layer_type=standar
 ### Polynomial convolutional layers
 
 ```python
-python examples/cifar100.py max_epochs=1000 train_fraction=1.0 layer_type=polynomial2d n=3 batch_size=1024 gradient_clip_val=0.0 learning_rate=1e-4 scale=6 layer_by_layer=False optimizer=lion model_name=resnet10
+python examples/cifar100.py max_epochs=1000 train_fraction=1.0 layer_type=polynomial2d n=3 batch_size=1024 gradient_clip_val=0.0 learning_rate=1e-4 scale=2 rescale_planes=3 layer_by_layer=False optimizer=lion model_name=resnet10
 ```
 with test results, the training top5 is basically 100% accurate. Highly overfit.
 ```
@@ -118,6 +121,15 @@ python examples/cifar100.py -m  max_epochs=100 train_fraction=1.0 layer_type=con
  'val_loss': tensor(3.4837, device='cuda:0')}
 ```
 Couple years later, no clipping using constant initialization 
+First result is with similar number of parameters (using )
+```
+python examples/cifar100.py max_epochs=100 train_fraction=1.0 layer_type=continuous2d segments=2 n=3 batch_size=1024 gradient_clip_val=0.0 learning_rate=1e-4 scale=2.0 model_name=resnet10 loss=cross_entropy rescale_planes=6 layer_by_layer=False optimizer=lion
+```
+with results
+```
+ [{'test_loss': 3.1842660903930664, 'test_acc': 0.29260000586509705, 'test_acc1': 0.29260000586509705, 'test_acc5': 0.5756999850273132}]
+```
+then
 ```
 python examples/cifar100.py max_epochs=100 train_fraction=1.0 layer_type=continuous2d segments=2 n=3 batch_size=1024 gradient_clip_val=0.0 learning_rate=1e-5 scale=2.0 model_name=resnet10 loss=cross_entropy rescale_planes=1 layer_by_layer=False optimizer=lion
 ```
@@ -134,7 +146,22 @@ with result
 [{'test_loss': 4.950081825256348, 'test_acc': 0.29280000925064087, 'test_acc1': 0.29280000925064087, 'test_acc5': 0.5515000224113464}]
 ```
 the larger network resnet18 overfits faster than the smaller network (better training score with lower generalization), not surprising
-
+resnet18 rescaling the planes, much smaller model for similar accuracy
+```
+python examples/cifar100.py max_epochs=200 train_fraction=1.0 layer_type=continuous2d segments=2 n=3 batch_size=1024 gradient_clip_val=0.0 learning_rate=1e-4 scale=2.0 model_name=resnet18 loss=cross_entropy rescale_planes=6 layer_by_layer=False optimizer=lion
+```
+results
+```
+[{'test_loss': 3.898888349533081, 'test_acc': 0.2802000045776367, 'test_acc1': 0.2802000045776367, 'test_acc5': 0.5493000149726868}]
+```
+resnet10 rescaled planes to have similar parameters as regular resnet18
+```
+python examples/cifar100.py max_epochs=1000 train_fraction=1.0 layer_type=polynomial2d n=3 batch_size=1024 gradient_clip_val=0.0 learning_rate=1e-4 scale=2 rescale_planes=3 layer_by_layer=False optimizer=lion model_name=resnet10
+```
+results
+```
+[{'test_loss': 9.258798599243164, 'test_acc': 0.27320000529289246, 'test_acc1': 0.27320000529289246, 'test_acc5': 0.5256999731063843}]
+```
 ### Discontinuous polynomial convolutional layers
 ```python
 python cifar100.py -m  max_epochs=100 train_fraction=1.0 layer_type=discontinuous2d segments=2 n=3 batch_size=128 gradient_clip_val=0.0 learning_rate=1e-3 scale=2.0 model_name=resnet10 loss=cross_entropy rescale_planes=3 rescale_output=True layer_by_layer=False

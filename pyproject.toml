@@ -8,10 +8,10 @@ license = "MIT"
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
 omegaconf = "^2.3.0"
-high-order-layers-torch = "^2.4.2"
 torchvision = "^0.18.0"
 lightning = "^2.2.5"
 torcheval = "^0.0.7"
+high-order-layers-torch = "^2.5.1"
 
 [tool.poetry.dev-dependencies]
 hydra-core = "^1.3.1"
